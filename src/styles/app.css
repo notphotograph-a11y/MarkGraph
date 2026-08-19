@@ -1,0 +1,461 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* 深色主题（obsidian / x）下启用 dark: 变体 */
+@custom-variant dark (&:is([data-theme="obsidian"], [data-theme="x"]));
+
+/* ============ 五套主题 token（docs/03-风格规范.md） ============ */
+/* apple（默认）：液态玻璃，编辑内容面保持不透明稳定底 */
+:root,
+[data-theme="apple"] {
+  --background: #eef0f4;
+  --foreground: #1d1d1f;
+  --card: #ffffff;
+  --popover: #ffffff;
+  --primary: #0071e3;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(0, 0, 0, 0.05);
+  --secondary-foreground: #1d1d1f;
+  --muted: rgba(0, 0, 0, 0.05);
+  --muted-foreground: #6e6e73;
+  --accent: rgba(0, 0, 0, 0.08);
+  --accent-foreground: #1d1d1f;
+  --destructive: #c2372f;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.1);
+  --ring: #0071e3;
+  --radius: 0.75rem;
+
+  /* MarkGraph 专属 token */
+  --mg-panel: rgba(255, 255, 255, 0.66);
+  --mg-panel-border: rgba(255, 255, 255, 0.65);
+  --mg-panel-blur: 28px;
+  --mg-elevated: rgba(255, 255, 255, 0.82);
+  --mg-content-bg: #ffffff; /* 编辑器内容面：不透明 */
+  --mg-desktop:
+    radial-gradient(1100px 760px at 82% -8%, rgba(116, 156, 246, 0.26), transparent 62%),
+    radial-gradient(900px 680px at -8% 108%, rgba(255, 168, 140, 0.18), transparent 60%),
+    radial-gradient(720px 520px at 38% 122%, rgba(158, 138, 246, 0.15), transparent  60%);
+  --mg-link: #0066cc;
+  --mg-broken: #c2372f;
+  --mg-save-dot: #34a853;
+  --mg-g1: #0071e3;
+  --mg-g2: #7d5be0;
+  --mg-g3: #e08600;
+  --mg-g-edge: rgba(29, 29, 31, 0.16);
+  --mg-g-label: #48484d;
+  --mg-shadow: 0 10px 34px rgba(20, 24, 40, 0.12);
+}
+
+[data-theme="paper"] {
+  --background: #fbfaf7;
+  --foreground: #1c1b18;
+  --card: #fffdf9;
+  --popover: #fffdf9;
+  --primary: #b45309;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(60, 50, 30, 0.06);
+  --secondary-foreground: #1c1b18;
+  --muted: rgba(60, 50, 30, 0.05);
+  --muted-foreground: #6f6a5f;
+  --accent: rgba(60, 50, 30, 0.09);
+  --accent-foreground: #1c1b18;
+  --destructive: #a34040;
+  --border: #e6e2d9;
+  --input: #dcd8cc;
+  --ring: #b45309;
+  --radius: 0.125rem;
+
+  --mg-panel: #f5f3ee;
+  --mg-panel-border: #e6e2d9;
+  --mg-panel-blur: 0px;
+  --mg-elevated: #fffdf9;
+  --mg-content-bg: #fffdf9;
+  --mg-desktop: none;
+  --mg-link: #b45309;
+  --mg-broken: #a34040;
+  --mg-save-dot: #3f6212;
+  --mg-g1: #b45309;
+  --mg-g2: #3f6212;
+  --mg-g3: #1e3a5f;
+  --mg-g-edge: rgba(28, 27, 24, 0.15);
+  --mg-g-label: #5f5a4e;
+  --mg-shadow: 0 2px 8px rgba(60, 50, 30, 0.05);
+  --mg-font-head: "Songti SC", "STSong", Georgia, serif;
+}
+
+[data-theme="obsidian"] {
+  --background: #1e1e1e;
+  --foreground: #dcddde;
+  --card: #262626;
+  --popover: #262626;
+  --primary: #8b6cef;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255, 255, 255, 0.055);
+  --secondary-foreground: #dcddde;
+  --muted: rgba(255, 255, 255, 0.055);
+  --muted-foreground: #9a9a9a;
+  --accent: rgba(255, 255, 255, 0.09);
+  --accent-foreground: #dcddde;
+  --destructive: #e16d76;
+  --border: #2f2f2f;
+  --input: #3a3a3a;
+  --ring: #8b6cef;
+  --radius: 0.25rem;
+
+  --mg-panel: #1a1a1a;
+  --mg-panel-border: #2f2f2f;
+  --mg-panel-blur: 0px;
+  --mg-elevated: #262626;
+  --mg-content-bg: #1e1e1e;
+  --mg-desktop: none;
+  --mg-link: #a882ff;
+  --mg-broken: #e16d76;
+  --mg-save-dot: #3fb26f;
+  --mg-g1: #a882ff;
+  --mg-g2: #5fb3ff;
+  --mg-g3: #63c69a;
+  --mg-g-edge: rgba(255, 255, 255, 0.13);
+  --mg-g-label: #b9babe;
+  --mg-shadow: none;
+}
+
+[data-theme="x"] {
+  --background: #000000;
+  --foreground: #e7e9ea;
+  --card: #16181c;
+  --popover: #16181c;
+  --primary: #1d9bf0;
+  --primary-foreground: #000000;
+  --secondary: rgba(231, 233, 234, 0.08);
+  --secondary-foreground: #e7e9ea;
+  --muted: rgba(231, 233, 234, 0.08);
+  --muted-foreground: #71767b;
+  --accent: rgba(231, 233, 234, 0.12);
+  --accent-foreground: #e7e9ea;
+  --destructive: #f4212e;
+  --border: #2f3336;
+  --input: #2f3336;
+  --ring: #1d9bf0;
+  --radius: 0.375rem;
+
+  --mg-panel: #000000;
+  --mg-panel-border: #2f3336;
+  --mg-panel-blur: 0px;
+  --mg-elevated: #16181c;
+  --mg-content-bg: #000000;
+  --mg-desktop: none;
+  --mg-link: #1d9bf0;
+  --mg-broken: #f4212e;
+  --mg-save-dot: #00ba7c;
+  --mg-g1: #1d9bf0;
+  --mg-g2: #a9b1b8;
+  --mg-g3: #4e5b67;
+  --mg-g-edge: rgba(231, 233, 234, 0.14);
+  --mg-g-label: #949ca4;
+  --mg-shadow: none;
+}
+
+[data-theme="meta"] {
+  --background: #f0f2f5;
+  --foreground: #050505;
+  --card: #ffffff;
+  --popover: #ffffff;
+  --primary: #0064e0;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(0, 0, 0, 0.05);
+  --secondary-foreground: #050505;
+  --muted: rgba(0, 0, 0, 0.05);
+  --muted-foreground: #65676b;
+  --accent: rgba(0, 0, 0, 0.09);
+  --accent-foreground: #050505;
+  --destructive: #c0392f;
+  --border: #e4e6eb;
+  --input: #e4e6eb;
+  --ring: #0064e0;
+  --radius: 0.75rem;
+
+  --mg-panel: #ffffff;
+  --mg-panel-border: #e4e6eb;
+  --mg-panel-blur: 0px;
+  --mg-elevated: #ffffff;
+  --mg-content-bg: #ffffff;
+  --mg-desktop: none;
+  --mg-link: #216fdb;
+  --mg-broken: #c0392f;
+  --mg-save-dot: #1a8f4a;
+  --mg-g1: #0064e0;
+  --mg-g2: #1a8f4a;
+  --mg-g3: #d2404e;
+  --mg-g-edge: rgba(5, 5, 5, 0.13);
+  --mg-g-label: #3a3b3d;
+  --mg-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 降透明度偏好：玻璃降级为实色 */
+@media (prefers-reduced-transparency: reduce) {
+  [data-theme="apple"] {
+    --mg-panel: #f6f7fa;
+    --mg-elevated: #ffffff;
+  }
+}
+
+/* ============ Tailwind v4 token 映射 ============ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: -apple-system, "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+/* ============ 应用基础样式 ============ */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 玻璃主题：桌面光斑背景 */
+.app-root {
+  position: relative;
+  min-height: 100%;
+  background: var(--background);
+  background-image: var(--mg-desktop);
+}
+
+/* 玻璃面板（壳层专用，编辑内容面不用） */
+.mg-glass {
+  background: var(--mg-panel);
+  border: 1px solid var(--mg-panel-border);
+  border-radius: calc(var(--radius) + 8px);
+  box-shadow: var(--mg-shadow);
+  backdrop-filter: blur(var(--mg-panel-blur)) saturate(1.8);
+  -webkit-backdrop-filter: blur(var(--mg-panel-blur)) saturate(1.8);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mg-glass {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+/* 编辑器内容面：不透明稳定底（长会话可读性） */
+.mg-content {
+  background: var(--mg-content-bg);
+}
+
+/* 衬线标题（纸感主题） */
+[data-theme="paper"] .mg-serif-head,
+[data-theme="paper"] .mg-read h1,
+[data-theme="paper"] .mg-read h2,
+[data-theme="paper"] .cm-mg-h1,
+[data-theme="paper"] .cm-mg-h2 {
+  font-family: var(--mg-font-head);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ============ 编辑器（CodeMirror 6） ============ */
+.mg-cm .cm-editor {
+  background: transparent;
+}
+.mg-cm .cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-mg-link {
+  color: var(--mg-link);
+  cursor: pointer;
+  border-radius: 3px;
+}
+.cm-mg-link:hover {
+  background: color-mix(in srgb, var(--mg-link) 14%, transparent);
+}
+.cm-mg-broken {
+  color: var(--mg-broken);
+  cursor: pointer;
+  border-bottom: 1px dashed var(--mg-broken);
+}
+.cm-mg-broken:hover {
+  background: color-mix(in srgb, var(--mg-broken) 12%, transparent);
+}
+.cm-mg-tag {
+  color: var(--primary);
+}
+.cm-mg-markdim {
+  opacity: 0.45;
+}
+.cm-mg-h1,
+.cm-mg-h2,
+.cm-mg-h3,
+.cm-mg-h4,
+.cm-mg-h5,
+.cm-mg-h6 { text-decoration: none; }
+.cm-mg-h1 { font-size: 1.55em; font-weight: 700; line-height: 1.4; }
+.cm-mg-h2 { font-size: 1.32em; font-weight: 650; line-height: 1.4; }
+.cm-mg-h3 { font-size: 1.16em; font-weight: 600; }
+.cm-mg-h4 { font-size: 1.05em; font-weight: 600; }
+.cm-mg-h5,
+.cm-mg-h6 { font-weight: 600; opacity: 0.9; }
+.cm-mg-strong { font-weight: 700; }
+.cm-mg-em { font-style: italic; }
+
+/* ============ 阅读模式 ============ */
+.mg-read h1 { font-size: 1.7em; font-weight: 700; margin: 0.8em 0 0.5em; }
+.mg-read h2 { font-size: 1.4em; font-weight: 650; margin: 1em 0 0.45em; }
+.mg-read h3 { font-size: 1.18em; font-weight: 600; margin: 1em 0 0.4em; }
+.mg-read h4 { font-size: 1.05em; font-weight: 600; margin: 0.9em 0 0.35em; }
+.mg-read p { margin: 0.6em 0; }
+.mg-read ul, .mg-read ol { margin: 0.5em 0; padding-left: 1.6em; }
+.mg-read li { margin: 0.25em 0; }
+.mg-read blockquote {
+  margin: 0.8em 0;
+  padding: 0.4em 1em;
+  border-left: 3px solid var(--primary);
+  background: var(--secondary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  color: var(--muted-foreground);
+}
+.mg-read code {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.88em;
+  background: var(--secondary);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.mg-read pre {
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+.mg-read pre code {
+  background: none;
+  padding: 0;
+}
+.mg-read hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.5em 0;
+}
+.mg-read table {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+}
+.mg-read th, .mg-read td {
+  border: 1px solid var(--border);
+  padding: 0.35em 0.8em;
+  text-align: left;
+}
+.mg-read th {
+  background: var(--secondary);
+  font-weight: 600;
+}
+
+.rd-link {
+  color: var(--mg-link);
+  cursor: pointer;
+  border-bottom: 1px solid color-mix(in srgb, var(--mg-link) 35%, transparent);
+}
+.rd-link:hover {
+  border-bottom-color: var(--mg-link);
+}
+.rd-broken {
+  color: var(--mg-broken);
+  border-bottom: 1px dashed var(--mg-broken);
+  cursor: pointer;
+}
+.rd-tag {
+  color: var(--primary);
+}
+
+/* ============ 图谱 ============ */
+.mg-graph-canvas {
+  cursor: grab;
+  touch-action: none;
+}
+.mg-graph-canvas.grabbing {
+  cursor: grabbing;
+}
+
+/* ============ 命令面板（壳层玻璃） ============ */
+.mg-palette-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12%;
+  background: rgba(0, 0, 0, 0.22);
+}
+.mg-palette {
+  width: min(620px, 86%);
+  overflow: hidden;
+  background: var(--mg-elevated);
+  border: 1px solid var(--mg-panel-border);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: var(--mg-shadow);
+  backdrop-filter: blur(var(--mg-panel-blur)) saturate(1.8);
+  -webkit-backdrop-filter: blur(var(--mg-panel-blur)) saturate(1.8);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .mg-palette {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+[data-theme="x"] .mg-palette-mask {
+  padding-top: 64px;
+  background: rgba(0, 0, 0, 0.45);
+}
+[data-theme="paper"] .mg-palette {
+  box-shadow: none;
+}
+[data-theme="obsidian"] .mg-palette-mask {
+  background: rgba(0, 0, 0, 0.35);
+}

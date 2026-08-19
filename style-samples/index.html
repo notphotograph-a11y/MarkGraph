@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MarkGraph · 风格小样</title>
+<style>
+/* ============ 基础 ============ */
+*{margin:0;padding:0;box-sizing:border-box}
+button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+ul{list-style:none}
+svg.ic{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+:root{
+  --sw-h:52px;
+}
+
+/* ============ 切换器（工具壳，不参与主题） ============ */
+.switcher{
+  position:fixed;inset:0 0 auto 0;height:var(--sw-h);z-index:100;
+  display:flex;align-items:center;gap:14px;padding:0 14px;
+  background:#101113;border-bottom:1px solid #232529;color:#d6d8dc;
+  font:13px -apple-system,"PingFang SC","Segoe UI",sans-serif;
+}
+.sw-brand{font-weight:650;letter-spacing:.2px;white-space:nowrap}
+.sw-brand span{font-weight:400;color:#7b7f86;margin-left:6px}
+.sw-btns{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto}
+.sw-btn{
+  padding:6px 13px;border-radius:999px;border:1px solid #2b2e33;color:#aab0b8;
+  white-space:nowrap;transition:all .15s ease;
+}
+.sw-btn:hover{color:#e8eaee;border-color:#3d4148}
+.sw-btn.on{background:#e9eaec;color:#15161a;border-color:#e9eaec;font-weight:600}
+.sw-hint{margin-left:auto;color:#6b7076;font-size:12px;white-space:nowrap}
+@media (max-width:1080px){.sw-hint{display:none}}
+
+/* ============ 主题 token（docs/03-风格规范.md） ============ */
+#app{height:calc(100vh - var(--sw-h));margin-top:var(--sw-h);overflow:hidden;display:flex;flex-direction:column}
+
+#app[data-theme="obsidian"]{
+  --bg:#1e1e1e; --bg-panel:#1a1a1a; --bg-elevated:#262626;
+  --text:#dcddde; --muted:#9a9a9a; --accent:#8b6cef; --accent-contrast:#ffffff;
+  --border:#2f2f2f; --hover:rgba(255,255,255,.055); --active:rgba(255,255,255,.09);
+  --link:#a882ff; --broken:#e16d76; --radius:4px; --radius-lg:8px;
+  --shadow:none; --panel-shadow:none;
+  --g1:#a882ff; --g2:#5fb3ff; --g3:#63c69a;
+  --g-edge:rgba(255,255,255,.13); --g-label:#b9babe;
+}
+#app[data-theme="apple"]{
+  --bg:#eef0f4; --bg-panel:rgba(255,255,255,.62); --bg-elevated:rgba(255,255,255,.8);
+  --text:#1d1d1f; --muted:#6e6e73; --accent:#0071e3; --accent-contrast:#ffffff;
+  --border:rgba(0,0,0,.08); --hover:rgba(0,0,0,.045); --active:rgba(0,0,0,.08);
+  --link:#0066cc; --broken:#c2372f; --radius:12px; --radius-lg:16px;
+  --shadow:none; --panel-shadow:0 10px 34px rgba(20,24,40,.12);
+  --g1:#0071e3; --g2:#7d5be0; --g3:#e08600;
+  --g-edge:rgba(29,29,31,.16); --g-label:#48484d;
+}
+#app[data-theme="meta"]{
+  --bg:#f0f2f5; --bg-panel:#ffffff; --bg-elevated:#ffffff;
+  --text:#050505; --muted:#65676b; --accent:#0064e0; --accent-contrast:#ffffff;
+  --border:#e4e6eb; --hover:rgba(0,0,0,.05); --active:rgba(0,0,0,.09);
+  --link:#216fdb; --broken:#c0392f; --radius:12px; --radius-lg:12px;
+  --shadow:0 1px 2px rgba(0,0,0,.1),0 1px 8px rgba(0,0,0,.1); --panel-shadow:0 1px 2px rgba(0,0,0,.1),0 2px 12px rgba(0,0,0,.1);
+  --g1:#0064e0; --g2:#1a8f4a; --g3:#d2404e;
+  --g-edge:rgba(5,5,5,.13); --g-label:#3a3b3d;
+}
+#app[data-theme="x"]{
+  --bg:#000000; --bg-panel:#000000; --bg-elevated:#16181c;
+  --text:#e7e9ea; --muted:#71767b; --accent:#1d9bf0; --accent-contrast:#000000;
+  --border:#2f3336; --hover:rgba(231,233,234,.08); --active:rgba(231,233,234,.12);
+  --link:#1d9bf0; --broken:#f4212e; --radius:4px; --radius-lg:8px;
+  --shadow:none; --panel-shadow:none;
+  --g1:#1d9bf0; --g2:#a9b1b8; --g3:#4e5b67;
+  --g-edge:rgba(231,233,234,.14); --g-label:#949ca4;
+}
+#app[data-theme="paper"]{
+  --bg:#fbfaf7; --bg-panel:#f5f3ee; --bg-elevated:#fffdf9;
+  --text:#1c1b18; --muted:#6f6a5f; --accent:#b45309; --accent-contrast:#ffffff;
+  --border:#e6e2d9; --hover:rgba(60,50,30,.05); --active:rgba(60,50,30,.09);
+  --link:#b45309; --broken:#a34040; --radius:2px; --radius-lg:4px;
+  --shadow:0 2px 8px rgba(60,50,30,.06); --panel-shadow:0 2px 8px rgba(60,50,30,.05);
+  --g1:#b45309; --g2:#3f6212; --g3:#1e3a5f;
+  --g-edge:rgba(28,27,24,.15); --g-label:#5f5a4e;
+}
+
+#app{
+  background:var(--bg);color:var(--text);
+  font:13px -apple-system,"PingFang SC","Segoe UI","Microsoft YaHei",sans-serif;
+  --w-left:244px; --w-right:282px;
+}
+
+/* ============ 布局骨架 ============ */
+.layout{flex:1;display:flex;min-height:0;min-width:980px}
+.side{background:var(--bg-panel);display:flex;flex-direction:column;min-height:0}
+.side.left{width:var(--w-left);border-right:1px solid var(--border)}
+.side.right{width:var(--w-right);border-left:1px solid var(--border);overflow-y:auto}
+.center{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
+
+/* ============ 左：文件树 ============ */
+.side-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px 8px;color:var(--muted);font-size:11px;
+  letter-spacing:.08em;text-transform:uppercase;flex:none;
+}
+.mini-btn{width:22px;height:22px;border-radius:var(--radius);display:grid;place-items:center;color:var(--muted)}
+.mini-btn:hover{background:var(--hover);color:var(--text)}
+.tree{overflow-y:auto;padding:0 6px 12px;flex:1}
+.tree .row{
+  display:flex;align-items:center;gap:7px;padding:4.5px 8px;border-radius:var(--radius);
+  color:var(--text);cursor:pointer;white-space:nowrap;overflow:hidden;
+}
+.tree .row:hover{background:var(--hover)}
+.tree .row span{overflow:hidden;text-overflow:ellipsis;font-size:13px}
+.tree .dir > .row{color:var(--text);font-weight:500}
+.tree .chev{transition:transform .15s ease;color:var(--muted)}
+.tree li.open > .row .chev{transform:rotate(90deg)}
+.tree ul ul{display:none;padding-left:14px}
+.tree li.open > ul{display:block}
+.tree .file .row{color:var(--muted)}
+.tree .file .row:hover span{color:var(--text)}
+.tree .file.cur .row{background:var(--active);color:var(--text)}
+.tree .file.cur .row svg{color:var(--accent)}
+
+/* ============ 中：标签栏 ============ */
+.tabbar{
+  display:flex;align-items:center;gap:8px;flex:none;height:40px;
+  padding:0 10px;border-bottom:1px solid var(--border);background:var(--bg-panel);
+}
+.traffic{display:none;align-items:center;gap:7px;margin-right:4px}
+.traffic i{width:12px;height:12px;border-radius:50%}
+.traffic .r{background:#ff5f57}.traffic .y{background:#febc2e}.traffic .g{background:#28c840}
+.tabs{display:flex;align-items:stretch;height:100%;gap:2px;min-width:0;overflow:hidden}
+.tab{
+  position:relative;display:flex;align-items:center;gap:6px;padding:0 13px;
+  color:var(--muted);font-size:13px;border-radius:var(--radius) var(--radius) 0 0;
+  white-space:nowrap;
+}
+.tab:hover{color:var(--text);background:var(--hover)}
+.tab.on{color:var(--text)}
+.tabbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.cmd-btn{
+  display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;
+  border:1px solid var(--border);color:var(--muted);font-size:12px;
+}
+.cmd-btn:hover{background:var(--hover);color:var(--text)}
+.cmd-btn kbd{font:11px ui-monospace,Menlo,monospace;border:1px solid var(--border);border-radius:4px;padding:0 4px;color:var(--muted)}
+.segmented{display:none;background:var(--hover);border-radius:9px;padding:2px}
+.segmented button{padding:4px 12px;border-radius:7px;font-size:12px;color:var(--muted)}
+.segmented button.on{background:var(--bg-elevated);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+
+/* ============ 中：内容区 ============ */
+.viewwrap{flex:1;min-height:0;position:relative;display:flex}
+.view{display:none;flex:1;min-width:0;min-height:0}
+.view.on{display:flex;flex-direction:column}
+.note{
+  flex:1;overflow-y:auto;padding:34px 44px 60px;line-height:1.75;
+  font-size:15.5px;
+}
+.note h1{font-size:26px;line-height:1.3;margin-bottom:10px;letter-spacing:.01em}
+.note .meta-line{color:var(--muted);font-size:12.5px;margin-bottom:24px;display:flex;gap:10px;align-items:center}
+.note p{margin-bottom:14px}
+.note ul{margin:0 0 14px 4px}
+.note li{padding-left:18px;position:relative;margin-bottom:6px}
+.note li::before{content:"";position:absolute;left:2px;top:.72em;width:5px;height:5px;border-radius:50%;background:var(--muted);opacity:.55}
+.note blockquote{
+  margin:0 0 14px;padding:10px 16px;border-left:3px solid var(--accent);
+  background:var(--hover);border-radius:0 var(--radius) var(--radius) 0;
+  color:var(--muted);
+}
+.wlink{color:var(--link);cursor:pointer;border-bottom:1px solid color-mix(in srgb,var(--link) 35%,transparent)}
+.wlink:hover{border-bottom-color:var(--link)}
+.tag{color:var(--accent);font-size:13px}
+
+/* ============ 中：图谱 ============ */
+.graph-view{position:relative}
+#graph{flex:1;width:100%;height:100%;display:block;cursor:grab}
+#graph.grabbing{cursor:grabbing}
+.graph-tip{
+  position:absolute;left:12px;bottom:10px;color:var(--muted);font-size:11.5px;
+  pointer-events:none;background:var(--bg-panel);padding:4px 9px;border-radius:999px;
+  border:1px solid var(--border);
+}
+
+/* ============ 中：状态栏 ============ */
+.statusbar{
+  flex:none;display:flex;align-items:center;gap:7px;padding:5px 14px;
+  border-top:1px solid var(--border);color:var(--muted);font-size:11.5px;background:var(--bg-panel);
+}
+.save-dot{width:7px;height:7px;border-radius:50%;background:#3fb26f}
+
+/* ============ 右栏 ============ */
+.rpanel{padding:14px 16px 6px;border-bottom:1px solid var(--border)}
+.rpanel:last-child{border-bottom:none}
+.rpanel h3{
+  display:flex;align-items:center;gap:7px;font-size:11px;letter-spacing:.08em;
+  color:var(--muted);font-weight:600;margin-bottom:10px;text-transform:uppercase;
+}
+.rpanel .count{
+  font-size:10.5px;background:var(--hover);border-radius:999px;padding:1px 7px;color:var(--muted);
+}
+.bl{padding:8px 10px;border-radius:var(--radius);margin-bottom:4px}
+.bl:hover{background:var(--hover)}
+.bl a{color:var(--link);font-size:13px;font-weight:550;cursor:pointer}
+.bl p{color:var(--muted);font-size:12px;margin-top:4px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.outline li{padding:4px 8px;font-size:12.5px;color:var(--muted);border-radius:var(--radius);cursor:pointer}
+.outline li:hover{background:var(--hover);color:var(--text)}
+.outline .h1{color:var(--text);font-weight:550}
+.outline .h2{padding-left:20px}
+.outline .h3{padding-left:32px}
+
+/* ============ 命令面板 ============ */
+.palette-mask{
+  position:absolute;inset:0;z-index:50;display:none;background:rgba(0,0,0,.35);
+  backdrop-filter:blur(2px);
+}
+.palette-mask.show{display:flex;align-items:flex-start;justify-content:center;padding-top:11%}
+.palette{
+  width:min(620px,86%);background:var(--bg-elevated);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--panel-shadow,0 16px 50px rgba(0,0,0,.35));
+  overflow:hidden;
+}
+.pal-input{display:flex;align-items:center;gap:10px;padding:13px 15px;border-bottom:1px solid var(--border)}
+.pal-input input{
+  flex:1;background:none;border:none;outline:none;color:var(--text);
+  font:15px -apple-system,"PingFang SC","Segoe UI",sans-serif;
+}
+.pal-input input::placeholder{color:var(--muted)}
+.pal-input kbd{font:11px ui-monospace,Menlo,monospace;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+.pal-list{max-height:320px;overflow-y:auto;padding:6px}
+.pal-item{
+  display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:var(--radius);
+  cursor:pointer;color:var(--text);font-size:13.5px;
+}
+.pal-item em{font-style:normal;color:var(--muted);font-size:12px;margin-left:auto}
+.pal-item:hover{background:var(--hover)}
+.pal-item.sel{background:var(--active)}
+.pal-sep{padding:8px 12px 4px;color:var(--muted);font-size:11px;letter-spacing:.06em}
+.pal-foot{padding:8px 14px;border-top:1px solid var(--border);color:var(--muted);font-size:11.5px}
+
+/* ============ 卡片主题顶栏（仅 meta 显示） ============ */
+.topnav{display:none;flex:none;height:56px;background:var(--bg-panel);border-bottom:1px solid var(--border);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.topnav-inner{height:100%;display:flex;align-items:center;gap:16px;padding:0 18px;max-width:1280px;margin:0 auto;width:100%}
+.brand-dot{width:26px;height:26px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:var(--accent-contrast);font-weight:700;font-size:14px}
+.brand-name{font-weight:700;font-size:16px}
+.searchpill{
+  flex:1;max-width:420px;display:flex;align-items:center;gap:9px;height:38px;padding:0 15px;
+  background:var(--hover);border-radius:999px;color:var(--muted);font-size:13.5px;cursor:text;
+}
+.topnav-right{margin-left:auto;display:flex;align-items:center;gap:12px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--accent-contrast);display:grid;place-items:center;font-size:13px;font-weight:600}
+
+/* ============ X 图标导航列（仅 x 显示） ============ */
+.rail{display:none;flex-direction:column;align-items:center;gap:6px;width:60px;flex:none;border-right:1px solid var(--border);padding:14px 0}
+.rail-logo{width:34px;height:34px;display:grid;place-items:center;font-weight:800;font-size:17px;color:var(--accent);margin-bottom:8px}
+.rail-btn{width:42px;height:42px;border-radius:999px;display:grid;place-items:center;color:var(--text)}
+.rail-btn svg{width:19px;height:19px}
+.rail-btn:hover{background:var(--hover)}
+.rail-btn.on{color:var(--accent)}
+
+/* ============ 各主题结构差异 ============ */
+/* —— ① obsidian：紧凑基准 —— */
+#app[data-theme="obsidian"] .tab.on{box-shadow:inset 0 -2px var(--accent)}
+
+/* —— ② apple：玻璃浮板 —— */
+#app[data-theme="apple"]{
+  background:
+    radial-gradient(1100px 760px at 82% -8%, rgba(116,156,246,.26), transparent 62%),
+    radial-gradient(900px 680px at -8% 108%, rgba(255,168,140,.18), transparent 60%),
+    radial-gradient(720px 520px at 38% 122%, rgba(158,138,246,.15), transparent 60%),
+    #eef0f4;
+}
+#app[data-theme="apple"] .layout{padding:11px;gap:11px}
+#app[data-theme="apple"] .side,#app[data-theme="apple"] .center{
+  background:var(--bg-panel);
+  backdrop-filter:blur(28px) saturate(1.8);-webkit-backdrop-filter:blur(28px) saturate(1.8);
+  border:1px solid rgba(255,255,255,.65);border-radius:var(--radius-lg);
+  box-shadow:var(--panel-shadow);overflow:hidden;
+}
+#app[data-theme="apple"] .side.left{border-right:none}
+#app[data-theme="apple"] .side.right{border-left:none}
+#app[data-theme="apple"] .traffic{display:flex}
+#app[data-theme="apple"] .segmented{display:flex}
+#app[data-theme="apple"] .tabbar,#app[data-theme="apple"] .statusbar{background:transparent}
+#app[data-theme="apple"] .statusbar{border-top:none}
+#app[data-theme="apple"] .note{font-size:16px}
+#app[data-theme="apple"] .palette-mask{padding-top:14%}
+
+/* —— ③ meta：卡片 + 顶栏 —— */
+#app[data-theme="meta"] .topnav{display:block}
+#app[data-theme="meta"] .layout{padding:14px;gap:14px;background:var(--bg)}
+#app[data-theme="meta"] .side,#app[data-theme="meta"] .center{
+  background:var(--bg-panel);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden;
+}
+#app[data-theme="meta"] .side.left{border-right:none}
+#app[data-theme="meta"] .side.right{border-left:none}
+#app[data-theme="meta"] .tabbar,#app[data-theme="meta"] .statusbar{background:var(--bg-panel)}
+#app[data-theme="meta"] .tab{border-radius:8px 8px 0 0}
+#app[data-theme="meta"] .tab.on{font-weight:600}
+#app[data-theme="meta"] .cmd-btn{border-radius:999px;background:var(--hover);border:none;font-weight:600}
+#app[data-theme="meta"] .note{padding:30px 40px 56px}
+#app[data-theme="meta"] .rpanel{border-bottom:none;background:transparent}
+#app[data-theme="meta"] .bl{border:1px solid var(--border);margin-bottom:8px;background:var(--bg)}
+#app[data-theme="meta"] .palette-mask{padding-top:16%}
+
+/* —— ④ x：纯黑列式 —— */
+#app[data-theme="x"] .rail{display:flex}
+#app[data-theme="x"] .layout{min-width:1040px}
+#app[data-theme="x"] .side.left{width:250px;border-right:1px solid var(--border)}
+#app[data-theme="x"] .tab{border-radius:999px 999px 0 0;align-self:flex-end;margin-bottom:1px}
+#app[data-theme="x"] .tab.on{color:var(--text);font-weight:700}
+#app[data-theme="x"] .tab.on::after{
+  content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:0;
+  width:52px;height:4px;border-radius:999px 999px 0 0;background:var(--accent);
+}
+#app[data-theme="x"] .cmd-btn{border-radius:999px}
+#app[data-theme="x"] .note{padding:28px 36px 52px;font-size:15px}
+#app[data-theme="x"] .wlink{border-bottom:none}
+#app[data-theme="x"] .wlink:hover{background:rgba(29,155,240,.12);border-radius:4px}
+#app[data-theme="x"] .palette-mask{align-items:flex-start;padding-top:64px;backdrop-filter:none}
+#app[data-theme="x"] .rpanel{border-bottom:1px solid var(--border)}
+
+/* —— ⑤ paper：纸感 —— */
+#app[data-theme="paper"] .layout{--w-left:224px;--w-right:264px}
+#app[data-theme="paper"] .note{
+  max-width:46rem;margin:0 auto;width:100%;font-size:16.5px;padding:40px 40px 72px;
+}
+#app[data-theme="paper"] .note h1{font-family:"Songti SC","STSong",Georgia,serif;font-weight:700;font-size:28px}
+#app[data-theme="paper"] .note blockquote{background:transparent;border-left-color:var(--muted);font-style:italic}
+#app[data-theme="paper"] .tab{
+  border-radius:6px 6px 0 0;border:1px solid transparent;border-bottom:none;
+  align-self:flex-end;margin:0 2px -1px;
+}
+#app[data-theme="paper"] .tab.on{
+  background:var(--bg);border-color:var(--border);color:var(--text);
+  box-shadow:0 1px 0 var(--bg);font-weight:550;
+}
+#app[data-theme="paper"] .tabbar{background:var(--bg-panel)}
+#app[data-theme="paper"] .palette{box-shadow:var(--shadow)}
+#app[data-theme="paper"] .pal-input input{font-family:inherit}
+
+/* 滚动条 */
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-track{background:transparent}
+</style>
+</head>
+<body>
+
+<div class="switcher">
+  <div class="sw-brand">MarkGraph<span>风格小样</span></div>
+  <div class="sw-btns">
+    <button class="sw-btn on" data-t="obsidian">① 经典深色</button>
+    <button class="sw-btn" data-t="apple">② 玻璃</button>
+    <button class="sw-btn" data-t="meta">③ 卡片</button>
+    <button class="sw-btn" data-t="x">④ 纯黑</button>
+    <button class="sw-btn" data-t="paper">⑤ 纸感</button>
+  </div>
+  <div class="sw-hint">点「图谱」标签看蜘蛛网 · 节点可拖拽 · ⌘P 打开命令面板</div>
+</div>
+
+<div id="app" data-theme="obsidian">
+
+  <header class="topnav">
+    <div class="topnav-inner">
+      <div class="brand-dot">M</div>
+      <span class="brand-name">MarkGraph</span>
+      <div class="searchpill"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg>搜索笔记，或按 ⌘P 唤起命令面板</div>
+      <div class="topnav-right">
+        <button class="mini-btn" data-act="graph" title="打开图谱"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="7" r="2.6"/><circle cx="17.5" cy="6.5" r="2.6"/><circle cx="12" cy="17" r="2.6"/><path d="M8.2 8.3l2.7 6M15.8 8.1l-2.5 6.3M8.4 6.8l6.6-.3"/></svg></button>
+        <div class="avatar">天</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <nav class="rail">
+      <div class="rail-logo">M</div>
+      <button class="rail-btn" data-act="graph" title="图谱"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="7" r="2.6"/><circle cx="17.5" cy="6.5" r="2.6"/><circle cx="12" cy="17" r="2.6"/><path d="M8.2 8.3l2.7 6M15.8 8.1l-2.5 6.3M8.4 6.8l6.6-.3"/></svg></button>
+      <button class="rail-btn" data-act="new" title="新建笔记"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="rail-btn" data-act="theme-paper" title="切换主题：纸感"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-.9 2-2 0-1.4-1-1.6-1-2.8 0-1.1.9-2 2-2h2.4A3.6 3.6 0 0 0 21 10.6C21 6.4 16.9 3 12 3z"/><circle cx="7.5" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="10.5" cy="7.5" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="7.5" r="1" fill="currentColor" stroke="none"/></svg></button>
+    </nav>
+
+    <aside class="side left">
+      <div class="side-head">
+        <span>文件</span>
+        <button class="mini-btn" data-act="new" title="新建笔记"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <ul class="tree">
+        <li class="dir open">
+          <div class="row"><svg class="ic chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>方法论</span></div>
+          <ul>
+            <li class="file cur"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>卡片笔记写作法.md</span></div></li>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>渐进总结.md</span></div></li>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>原子化笔记.md</span></div></li>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>知识网络.md</span></div></li>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>Zettelkasten 读后感.md</span></div></li>
+          </ul>
+        </li>
+        <li class="dir open">
+          <div class="row"><svg class="ic chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>项目</span></div>
+          <ul>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>MarkGraph.md</span></div></li>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>论文开题.md</span></div></li>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>发布计划.md</span></div></li>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>周报模板.md</span></div></li>
+          </ul>
+        </li>
+        <li class="dir">
+          <div class="row"><svg class="ic chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><svg class="ic" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>日记</span></div>
+          <ul>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>2026-08-19.md</span></div></li>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>2026-08-12.md</span></div></li>
+            <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>晨间五分钟.md</span></div></li>
+          </ul>
+        </li>
+        <li class="file"><div class="row"><svg class="ic" viewBox="0 0 24 24"><path d="M6.5 3h7.5l4 4v14h-11.5z"/><path d="M14 3v4h4"/></svg><span>README.md</span></div></li>
+      </ul>
+    </aside>
+
+    <main class="center">
+      <div class="tabbar">
+        <div class="traffic"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+        <div class="tabs">
+          <button class="tab on" data-view="note">卡片笔记写作法</button>
+          <button class="tab" data-view="graph"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="7" r="2.6"/><circle cx="17.5" cy="6.5" r="2.6"/><circle cx="12" cy="17" r="2.6"/><path d="M8.2 8.3l2.7 6M15.8 8.1l-2.5 6.3M8.4 6.8l6.6-.3"/></svg>图谱</button>
+        </div>
+        <div class="tabbar-right">
+          <div class="segmented"><button class="on">编辑</button><button>阅读</button></div>
+          <button class="cmd-btn" id="cmdBtn"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg>命令面板<kbd>⌘P</kbd></button>
+        </div>
+      </div>
+
+      <div class="viewwrap">
+        <article class="note view on" id="view-note">
+          <h1>卡片笔记写作法</h1>
+          <div class="meta-line">2026-08-19 创建 · <span class="tag">#方法论</span><span class="tag">#写作</span></div>
+          <p>卢曼的 Zettelkasten 之所以有效，不在于「收藏」，而在于每张卡片都被迫回答一个问题：它和已有的哪张卡片有关？网络的形成是写作的副产品——见 <span class="wlink">知识网络</span> 与 <span class="wlink">原子化笔记</span>。</p>
+          <blockquote>笔记的价值不是记录，而是连接。</blockquote>
+          <p>实践要点：</p>
+          <ul>
+            <li>用自己的话重写，不摘抄原文</li>
+            <li>一条卡片只装一个想法，见 <span class="wlink">原子化笔记</span></li>
+            <li>定期回顾，把相关卡片串成主题（<span class="wlink">渐进总结</span>）</li>
+          </ul>
+          <p>写不下去的时候，先在 <span class="wlink">2026-08-19</span> 的日记里把障碍描述清楚，往往第二天就有了入口。项目侧的落地记录在 <span class="wlink">MarkGraph</span>。</p>
+        </article>
+
+        <section class="graph-view view" id="view-graph">
+          <canvas id="graph"></canvas>
+          <div class="graph-tip">悬停高亮邻居 · 拖拽节点 · 滚轮缩放 · 双击复位</div>
+        </section>
+      </div>
+
+      <div class="statusbar"><span class="save-dot"></span>已保存 · 刚刚</div>
+    </main>
+
+    <aside class="side right">
+      <section class="rpanel">
+        <h3>反向链接 <span class="count">3</span></h3>
+        <div class="bl"><a>知识网络</a><p>《卡片笔记写作法》指出，每张卡片都要回答「与谁有关」的问题，这正是网络的形成机制……</p></div>
+        <div class="bl"><a>论文开题</a><p>方法上参考卡片笔记写作法的做法，把文献读后感拆成原子卡片再聚合……</p></div>
+        <div class="bl"><a>2026-08-19</a><p>今天重读卡片笔记写作法，决定把日记也纳入卡片体系，统一用双链串起来……</p></div>
+      </section>
+      <section class="rpanel">
+        <h3>大纲</h3>
+        <ul class="outline">
+          <li class="h1">卡片笔记写作法</li>
+          <li class="h2">实践要点</li>
+          <li class="h2">写不下去时</li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+
+  <div class="palette-mask" id="paletteMask">
+    <div class="palette">
+      <div class="pal-input">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg>
+        <input placeholder="搜索文件，或输入命令…" spellcheck="false">
+        <kbd>esc</kbd>
+      </div>
+      <div class="pal-list">
+        <div class="pal-item sel" data-act="note">卡片笔记写作法<em>方法论 /</em></div>
+        <div class="pal-item" data-act="note">渐进总结<em>方法论 /</em></div>
+        <div class="pal-item" data-act="note">知识网络<em>方法论 /</em></div>
+        <div class="pal-item" data-act="note">论文开题<em>项目 /</em></div>
+        <div class="pal-sep">命令</div>
+        <div class="pal-item" data-act="graph">打开图谱</div>
+        <div class="pal-item" data-act="new">新建笔记</div>
+        <div class="pal-item" data-act="theme-paper">切换主题 · 纸感</div>
+        <div class="pal-item" data-act="theme-x">切换主题 · 纯黑</div>
+      </div>
+      <div class="pal-foot">↑↓ 选择 · ↵ 执行 · esc 关闭</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var app = document.getElementById('app');
+
+  /* ---------- URL hash 预设：#<theme> 或 #<theme>/graph ---------- */
+  var hashTheme = null, hashView = null;
+  var m = /^#(obsidian|apple|meta|x|paper)(?:\/(graph|note))?$/.exec(location.hash);
+  if (m){ hashTheme = m[1]; hashView = m[2] || 'note'; }
+  var defaultView = hashView || 'note';
+
+  /* ---------- 主题切换 ---------- */
+  var sws = Array.prototype.slice.call(document.querySelectorAll('.sw-btn'));
+  function setTheme(t){
+    app.dataset.theme = t;
+    sws.forEach(function(b){ b.classList.toggle('on', b.dataset.t === t); });
+    if (graph) graph.theme();
+  }
+  sws.forEach(function(b){ b.addEventListener('click', function(){ setTheme(b.dataset.t); }); });
+
+  /* ---------- 标签页 ---------- */
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab[data-view]'));
+  var views = { note: document.getElementById('view-note'), graph: document.getElementById('view-graph') };
+  function showView(v){
+    Object.keys(views).forEach(function(k){ views[k].classList.toggle('on', k === v); });
+    if (v === 'graph') graph.resize();
+  }
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){
+      tabs.forEach(function(x){ x.classList.toggle('on', x === t); });
+      showView(t.dataset.view);
+    });
+  });
+  if (defaultView !== 'note'){
+    tabs.forEach(function(x){ x.classList.toggle('on', x.dataset.view === defaultView); });
+    showView(defaultView);
+  }
+
+  /* ---------- 文件树 ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll('.tree .dir > .row'), function(r){
+    r.addEventListener('click', function(){ r.parentElement.classList.toggle('open'); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.tree .file .row'), function(r){
+    r.addEventListener('click', function(){
+      document.querySelectorAll('.tree .file').forEach(function(f){ f.classList.remove('cur'); });
+      r.parentElement.classList.add('cur');
+      tabs[0].click();
+    });
+  });
+
+  /* ---------- 命令面板 ---------- */
+  var mask = document.getElementById('paletteMask');
+  var palInput = mask.querySelector('input');
+  var palItems = Array.prototype.slice.call(mask.querySelectorAll('.pal-item'));
+  function openPalette(){ mask.classList.add('show'); palInput.value = ''; palInput.focus(); }
+  function closePalette(){ mask.classList.remove('show'); }
+  document.getElementById('cmdBtn').addEventListener('click', openPalette);
+  mask.addEventListener('click', function(e){ if (e.target === mask) closePalette(); });
+  document.addEventListener('keydown', function(e){
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'p'){
+      e.preventDefault();
+      mask.classList.contains('show') ? closePalette() : openPalette();
+    }
+    if (e.key === 'Escape') closePalette();
+  });
+  var palIdx = 0;
+  palInput.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+      e.preventDefault();
+      palIdx = (palIdx + (e.key === 'ArrowDown' ? 1 : -1) + palItems.length) % palItems.length;
+      palItems.forEach(function(x, i){ x.classList.toggle('sel', i === palIdx); });
+      palItems[palIdx].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter'){
+      palItems[palIdx].click();
+    }
+  });
+
+  /* ---------- 动作分发 ---------- */
+  function act(a){
+    if (a === 'graph'){ tabs[1].click(); }
+    else if (a === 'note'){ tabs[0].click(); }
+    else if (a === 'new'){ tabs[0].click(); }
+    else if (a.indexOf('theme-') === 0){ setTheme(a.slice(6)); }
+    closePalette();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-act]'), function(el){
+    el.addEventListener('click', function(){ act(el.dataset.act); });
+  });
+
+  /* ---------- 分段控件（apple 装饰） ---------- */
+  var segBtns = document.querySelectorAll('.segmented button');
+  Array.prototype.forEach.call(segBtns, function(b){
+    b.addEventListener('click', function(){
+      Array.prototype.forEach.call(segBtns, function(x){ x.classList.toggle('on', x === b); });
+    });
+  });
+
+  /* ---------- 迷你力导向图谱 ---------- */
+  var graph = (function(){
+    var cv = document.getElementById('graph');
+    var ctx = cv.getContext('2d');
+    var palette = { c: ['#8b6cef', '#5fb3ff', '#63c69a'], edge: 'rgba(255,255,255,.13)', label: '#b9babe', accent: '#8b6cef' };
+
+    var NAMES = [
+      ['卡片笔记写作法', 0], ['渐进总结', 0], ['原子化笔记', 0], ['知识网络', 0], ['输入与输出', 0], ['Zettelkasten 读后感', 0],
+      ['MarkGraph', 1], ['论文开题', 1], ['周报模板', 1], ['发布计划', 1],
+      ['2026-08-19', 2], ['2026-08-12', 2], ['晨间五分钟', 2]
+    ];
+    var LINKS = [
+      [0,3],[0,1],[0,2],[0,9],[0,6],[3,2],[3,5],[1,2],[1,4],[4,5],[4,10],
+      [6,9],[6,11],[7,0],[7,2],[7,5],[8,9],[10,11],[10,12],[5,3],[9,8]
+    ];
+    var nodes = NAMES.map(function(n, i){
+      var a = (n[1] * 2.1) + (i * .55);
+      return { id: i, label: n[0], f: n[1], deg: 0,
+        x: Math.cos(a) * (130 + n[1] * 55), y: Math.sin(a) * (95 + n[1] * 40), vx: 0, vy: 0 };
+    });
+    LINKS.forEach(function(l){ nodes[l[0]].deg++; nodes[l[1]].deg++; });
+
+    var hover = -1, dragI = -1, panning = false;
+    var scale = 1, panX = 0, panY = 0, alpha = 1;
+    var w = 0, h = 0, dpr = 1;
+
+    function theme(){
+      var cs = getComputedStyle(app);
+      palette.c = [cs.getPropertyValue('--g1').trim(), cs.getPropertyValue('--g2').trim(), cs.getPropertyValue('--g3').trim()];
+      palette.edge = cs.getPropertyValue('--g-edge').trim();
+      palette.label = cs.getPropertyValue('--g-label').trim();
+      palette.accent = cs.getPropertyValue('--accent').trim();
+    }
+    function resize(){
+      var r = cv.parentElement.getBoundingClientRect();
+      w = r.width; h = r.height;
+      dpr = window.devicePixelRatio || 1;
+      cv.width = Math.max(1, Math.round(w * dpr));
+      cv.height = Math.max(1, Math.round(h * dpr));
+    }
+    function radius(n){ return 4.5 + 2.1 * Math.min(n.deg, 6); }
+
+    function step(){
+      var i, j, a, b, dx, dy, d2, f;
+      var cur = alpha > 0.02 ? alpha : 0.02;
+      for (i = 0; i < nodes.length; i++){
+        a = nodes[i];
+        for (j = i + 1; j < nodes.length; j++){
+          b = nodes[j];
+          dx = a.x - b.x; dy = a.y - b.y; d2 = dx * dx + dy * dy;
+          if (d2 < 1) d2 = 1;
+          f = 2400 / d2;
+          if (d2 < 900) f *= 2.2;
+          dx /= Math.sqrt(d2); dy /= Math.sqrt(d2);
+          a.vx += dx * f * cur; a.vy += dy * f * cur;
+          b.vx -= dx * f * cur; b.vy -= dy * f * cur;
+        }
+      }
+      for (i = 0; i < LINKS.length; i++){
+        a = nodes[LINKS[i][0]]; b = nodes[LINKS[i][1]];
+        dx = b.x - a.x; dy = b.y - a.y;
+        var d = Math.sqrt(dx * dx + dy * dy) || 1;
+        f = (d - 84) * 0.018 * cur;
+        dx /= d; dy /= d;
+        a.vx += dx * d * f * .5; a.vy += dy * d * f * .5;
+        b.vx -= dx * d * f * .5; b.vy -= dy * d * f * .5;
+      }
+      for (i = 0; i < nodes.length; i++){
+        a = nodes[i];
+        a.vx -= a.x * 0.0016; a.vy -= a.y * 0.0016;
+        if (i === dragI){ a.vx = 0; a.vy = 0; continue; }
+        a.vx *= 0.85; a.vy *= 0.85;
+        a.x += a.vx; a.y += a.vy;
+      }
+      alpha *= 0.994;
+    }
+
+    function draw(){
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      ctx.translate(w / 2 + panX, h / 2 + panY);
+      ctx.scale(scale, scale);
+      var i, a, b;
+      for (i = 0; i < LINKS.length; i++){
+        a = nodes[LINKS[i][0]]; b = nodes[LINKS[i][1]];
+        var lit = hover >= 0 && (LINKS[i][0] === hover || LINKS[i][1] === hover);
+        ctx.strokeStyle = lit ? palette.accent : palette.edge;
+        ctx.lineWidth = lit ? 2 / scale : 1 / scale;
+        ctx.globalAlpha = hover >= 0 && !lit ? 0.25 : 1;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+      for (i = 0; i < nodes.length; i++){
+        a = nodes[i];
+        var r = radius(a);
+        var dim = hover >= 0 && hover !== i;
+        var isNb = false;
+        if (hover >= 0){
+          for (var k = 0; k < LINKS.length; k++){
+            if ((LINKS[k][0] === hover && LINKS[k][1] === i) || (LINKS[k][1] === hover && LINKS[k][0] === i)){ isNb = true; break; }
+          }
+        }
+        ctx.globalAlpha = dim && !isNb ? 0.22 : 1;
+        ctx.fillStyle = palette.c[a.f];
+        ctx.beginPath(); ctx.arc(a.x, a.y, r, 0, 6.2832); ctx.fill();
+        if (i === 0){
+          ctx.strokeStyle = palette.accent; ctx.lineWidth = 2 / scale;
+          ctx.beginPath(); ctx.arc(a.x, a.y, r + 3.5 / scale, 0, 6.2832); ctx.stroke();
+        }
+        if (hover === i || a.deg >= 4){
+          ctx.globalAlpha = dim && !isNb ? 0.25 : 0.92;
+          ctx.fillStyle = palette.label;
+          ctx.font = '11px -apple-system,"PingFang SC",sans-serif';
+          ctx.fillText(a.label, a.x + r + 6, a.y + 3.5);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function loop(){
+      if (cv.offsetParent !== null){
+        if (alpha > 0.02 || dragI >= 0 || panning) step();
+        draw();
+      }
+      requestAnimationFrame(loop);
+    }
+
+    function toWorld(ex, ey){
+      return { x: (ex - w / 2 - panX) / scale, y: (ey - h / 2 - panY) / scale };
+    }
+    function hit(ex, ey){
+      var p = toWorld(ex, ey);
+      for (var i = nodes.length - 1; i >= 0; i--){
+        var a = nodes[i], dx = p.x - a.x, dy = p.y - a.y;
+        if (dx * dx + dy * dy < Math.pow(radius(a) + 6, 2)) return i;
+      }
+      return -1;
+    }
+
+    cv.addEventListener('pointerdown', function(e){
+      var i = hit(e.offsetX, e.offsetY);
+      cv.setPointerCapture(e.pointerId);
+      if (i >= 0){ dragI = i; alpha = Math.max(alpha, .5); }
+      else { panning = true; cv.classList.add('grabbing'); }
+    });
+    cv.addEventListener('pointermove', function(e){
+      if (dragI >= 0){
+        var p = toWorld(e.offsetX, e.offsetY);
+        nodes[dragI].x = p.x; nodes[dragI].y = p.y; alpha = Math.max(alpha, .35);
+      } else if (panning){
+        panX += e.movementX; panY += e.movementY;
+      } else {
+        var hov = hit(e.offsetX, e.offsetY);
+        if (hov !== hover){ hover = hov; cv.style.cursor = hov >= 0 ? 'pointer' : 'grab'; }
+      }
+    });
+    cv.addEventListener('pointerup', function(e){
+      if (dragI >= 0 && hit(e.offsetX, e.offsetY) === dragI && Math.abs(nodes[dragI].vx) < 1){
+        /* 单击节点：视为打开笔记，仅高亮演示 */
+      }
+      dragI = -1; panning = false; cv.classList.remove('grabbing');
+    });
+    cv.addEventListener('pointerleave', function(){ hover = -1; });
+    cv.addEventListener('wheel', function(e){
+      e.preventDefault();
+      var f = Math.exp(-e.deltaY * 0.0012);
+      var ns = Math.min(2.6, Math.max(0.4, scale * f));
+      panX = e.offsetX - w / 2 - (e.offsetX - w / 2 - panX) * (ns / scale);
+      panY = e.offsetY - h / 2 - (e.offsetY - h / 2 - panY) * (ns / scale);
+      scale = ns;
+    }, { passive: false });
+    cv.addEventListener('dblclick', function(){ scale = 1; panX = 0; panY = 0; alpha = 1; });
+
+    if (window.ResizeObserver){
+      new ResizeObserver(resize).observe(cv.parentElement);
+    } else {
+      window.addEventListener('resize', resize);
+    }
+    theme(); resize(); loop();
+    return { theme: theme, resize: resize };
+  })();
+
+  if (hashTheme) setTheme(hashTheme);
+
+  /* hash 变化时同步（如 #paper、#x/graph，支持浏览器前进后退） */
+  window.addEventListener('hashchange', function(){
+    var mm = /^#(obsidian|apple|meta|x|paper)(?:\/(graph|note))?$/.exec(location.hash);
+    if (!mm) return;
+    setTheme(mm[1]);
+    var v = mm[2] || 'note';
+    tabs.forEach(function(x){ x.classList.toggle('on', x.dataset.view === v); });
+    showView(v);
+  });
+})();
+</script>
+</body>
+</html>
