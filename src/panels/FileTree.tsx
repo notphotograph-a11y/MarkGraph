@@ -161,31 +161,45 @@ function TreeRow({
   node,
   open,
   onToggle,
+  onOpenFolder,
   onMenu,
 }: {
   node: VaultNode
   open: boolean
   onToggle: () => void
+  onOpenFolder: () => void
   onMenu?: (action: 'rename' | 'delete' | 'create-note' | 'create-dir') => void
 }) {
   const activePath = useStore(s => (s.activeIndex >= 0 ? s.tabs[s.activeIndex] : null))
   const openNote = useStore(s => s.openNote)
   const isActive =
-    node.type === 'file' && activePath?.kind === 'note' && activePath.path === node.path
+    (node.type === 'file' && activePath?.kind === 'note' && activePath.path === node.path) ||
+    (node.type === 'dir' && activePath?.kind === 'folder' && activePath.path === node.path)
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         {node.type === 'dir' ? (
-          <button
-            onClick={onToggle}
-            className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[13px] font-medium hover:bg-[var(--secondary)]"
+          <span
+            className={cn(
+              'flex w-full items-center rounded text-[13px] font-medium hover:bg-[var(--secondary)]',
+              isActive && 'bg-[var(--accent)] text-[var(--foreground)]',
+            )}
           >
-            <ChevronRight
-              className={cn('h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform', open && 'rotate-90')}
-            />
-            <span className="truncate">{node.name}</span>
-          </button>
+            <button
+              type="button"
+              aria-label={open ? '折叠' : '展开'}
+              onClick={onToggle}
+              className="grid h-6 w-6 flex-none place-items-center rounded"
+            >
+              <ChevronRight
+                className={cn('h-3.5 w-3.5 text-[var(--muted-foreground)] transition-transform', open && 'rotate-90')}
+              />
+            </button>
+            <button type="button" onClick={onOpenFolder} className="min-w-0 flex-1 truncate py-1 pr-2 text-left">
+              {node.name}
+            </button>
+          </span>
         ) : (
           <button
             onClick={() => void openNote(node.path)}
@@ -236,6 +250,7 @@ function TreeRow({
 export function FileTree() {
   const tree = useStore(s => s.tree)
   const openGraph = useStore(s => s.openGraph)
+  const openFolder = useStore(s => s.openFolder)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const seededExpand = useRef(false)
   const actions = useTreeActions()
@@ -277,6 +292,11 @@ export function FileTree() {
           node={node}
           open={expanded.has(node.path)}
           onToggle={() => toggle(node.path)}
+          onOpenFolder={() => {
+            if (node.type !== 'dir') return
+            openFolder(node.path)
+            setExpanded(prev => new Set(prev).add(node.path))
+          }}
           onMenu={action => {
             if (action === 'rename') actions.setNameMode({ kind: 'rename', from: node.path })
             else if (action === 'delete') actions.setConfirmDelete(node.path)

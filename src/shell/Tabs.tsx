@@ -6,6 +6,7 @@ import { collectPaths } from '@/editor/wikilink'
 function tabTitle(tab: { kind: string; path?: string }, treePaths: string[]): string {
   if (tab.kind === 'graph') return '图谱'
   if (tab.kind === 'chat') return '问答'
+  if (tab.kind === 'folder') return tab.path!.split('/').pop() ?? ''
   const name = tab.path!.split('/').pop() ?? ''
   const base = name.replace(/\.md$/i, '')
   // F2.8：同名笔记以相对路径区分显示

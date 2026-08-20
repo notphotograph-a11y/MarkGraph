@@ -20,9 +20,9 @@ export function readAiEnv(): AiEnv {
   }
 }
 
-/** chat + embeddings 齐备才视为已配置（向量是相关笔记/语义搜索/问答的硬依赖） */
+/** 网关 + 双模型齐备即视为已配置；API Key 可空（Ollama 等本地网关零密钥，F18.1） */
 export function isComplete(env: AiEnv): boolean {
-  return !!(env.baseUrl && env.apiKey && env.chatModel && env.embedModel)
+  return !!(env.baseUrl && env.chatModel && env.embedModel)
 }
 
 let cache: { at: number; env: AiEnv } | null = null

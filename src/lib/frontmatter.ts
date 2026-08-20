@@ -12,6 +12,14 @@ export function splitFrontmatter(content: string): { fm: string | null; body: st
   return { fm: m[1], body: content.slice(m[0].length) }
 }
 
+/** frontmatter summary（AI 写入的单行摘要） */
+export function fmSummary(fm: string | null): string {
+  if (!fm) return ''
+  const m = /^summary:\s*(.+)$/m.exec(fm)
+  if (!m) return ''
+  return m[1].replace(/^['"]|['"]$/g, '').trim()
+}
+
 /** frontmatter tags（行内 `[a, b]` 或 `- a` 列表），与 server 侧解析规则一致 */
 export function fmTags(fm: string | null): string[] {
   if (!fm) return []

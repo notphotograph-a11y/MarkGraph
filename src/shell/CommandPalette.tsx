@@ -3,7 +3,8 @@
  * 顶部下拉玻璃面板；Esc / 点遮罩关闭。
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Sparkles, Terminal } from 'lucide-react'
+import { FileText, Folder, Search, Sparkles, Terminal } from 'lucide-react'
+import type { VaultNode } from '@/api/types'
 import { useStore } from '@/state/store'
 import { useAiStore } from '@/state/ai'
 import { fuzzyScore } from '@/editor/completions'
@@ -17,6 +18,8 @@ interface FileItem {
   hint: string
   path: string
   score: number
+  /** 文件夹项：回车打开文件夹页而非笔记（F15.1） */
+  folder?: boolean
 }
 
 interface CmdItem {
@@ -67,8 +70,75 @@ export function CommandPalette() {
     return () => window.clearTimeout(t)
   }, [query, open, aiConfigured])
 
+  const contents = useStore(s => s.contents)
+
   const items = useMemo<Item[]>(() => {
     const q = query.trim()
+    // 文件夹候选（F15.1）：树里的目录进入 fuzzy 列表
+    const folders: VaultNode[] = []
+    const walkFolders = (nodes: VaultNode[]) => {
+      for (const n of nodes) {
+        if (n.type === 'dir') {
+          folders.push(n)
+          walkFolders(n.children ?? [])
+        }
+      }
+    }
+    walkFolders(tree?.children ?? [])
+    const folderItems: FileItem[] = folders
+      .map(f => {
+        const name = f.name
+        const score = q ? fuzzyScore(q, name) + (name.toLowerCase().startsWith(q.toLowerCase()) ? 5 : 0) : 1
+        return {
+          kind: 'file' as const,
+          id: `folder:${f.path}`,
+          title: name,
+          hint: '文件夹',
+          path: f.path,
+          score,
+          folder: true,
+        }
+      })
+      .filter(f => f.score >= 0)
+
+    // 全文搜索（F16）：不依赖 AI，标题命中权重高于正文
+    const ql = q.toLowerCase()
+    const textHits: FileItem[] = []
+    if (ql.length >= 2) {
+      for (const [p, content] of Object.entries(contents)) {
+        if (p.toLowerCase().endsWith('.md') === false) continue
+        const name = p.split('/').pop()!.replace(/\.md$/i, '')
+        const titleHit = name.toLowerCase().includes(ql)
+        let bodyLine = ''
+        let count = 0
+        if (!titleHit) {
+          const lines = content.split('\n')
+          for (let i = 0; i < lines.length; i++) {
+            const idx = lines[i].toLowerCase().indexOf(ql)
+            if (idx >= 0) {
+              count++
+              if (!bodyLine) {
+                const around = lines[i].trim().slice(Math.max(0, idx - 12), idx + ql.length + 18)
+                bodyLine = (idx > 12 ? '…' : '') + around + '…'
+              }
+            }
+            if (count > 5) break
+          }
+        }
+        if (titleHit || count > 0) {
+          textHits.push({
+            kind: 'file',
+            id: `text:${p}`,
+            title: name,
+            hint: titleHit ? '标题命中' : bodyLine,
+            path: p,
+            score: (titleHit ? 100 : 0) + count * 2,
+          })
+        }
+      }
+      textHits.sort((a, b) => b.score - a.score)
+    }
+
     const files: FileItem[] = (index?.nodes ?? [])
       .filter(n => !n.ghost)
       .map(n => {
@@ -89,7 +159,9 @@ export function CommandPalette() {
           : a.path.localeCompare(b.path, 'zh'),
       )
 
+    const fuzzyPaths = new Set(files.filter(f => f.score > 0 && q).map(f => f.path))
     const semPaths = new Set(sem.map(r => r.path))
+    const textItems = textHits.filter(t => !fuzzyPaths.has(t.path) && !semPaths.has(t.path)).slice(0, 6)
     const semItems: FileItem[] = sem
       .filter(r => index?.nodes.some(n => n.id === r.path))
       .map(r => ({
@@ -117,8 +189,11 @@ export function CommandPalette() {
       .sort((a, b) => b.score - a.score)
 
     const fileLimit = q ? 12 : 8
-    return [...semItems, ...files.filter(f => !semPaths.has(f.path)).slice(0, fileLimit), ...cmds]
-  }, [query, index, open, theme, tree, sem])
+    const fuzzyList = q
+      ? [...folderItems, ...files].filter(f => !semPaths.has(f.path)).slice(0, fileLimit)
+      : files.slice(0, fileLimit)
+    return [...semItems, ...textItems, ...fuzzyList, ...cmds]
+  }, [query, index, open, theme, tree, sem, contents])
 
   useEffect(() => {
     if (!open) return
@@ -149,18 +224,23 @@ export function CommandPalette() {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [])
 
+  const openFolder = useStore(s => s.openFolder)
+
   const run = (item: Item | undefined) => {
     if (!item) return
     setOpen(false)
-    if (item.kind === 'file') void openNote(item.path)
-    else void item.run()
+    if (item.kind === 'file') {
+      if (item.folder) openFolder(item.path)
+      else void openNote(item.path)
+    } else void item.run()
   }
 
   if (!open) return null
 
   const files = items.filter((i): i is FileItem => i.kind === 'file')
   const semFiles = files.filter(f => f.id.startsWith('sem:'))
-  const fuzzyFiles = files.filter(f => !f.id.startsWith('sem:'))
+  const textFiles = files.filter(f => f.id.startsWith('text:'))
+  const fuzzyFiles = files.filter(f => !f.id.startsWith('sem:') && !f.id.startsWith('text:'))
   const cmds = items.filter((i): i is CmdItem => i.kind === 'command')
 
   return (
@@ -232,6 +312,31 @@ export function CommandPalette() {
               })}
             </>
           )}
+          {textFiles.length > 0 && (
+            <>
+              <div className="px-2.5 pt-1.5 pb-1 text-[11px] tracking-wide text-[var(--muted-foreground)]">全文匹配</div>
+              {textFiles.map(item => {
+                const i = items.indexOf(item)
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    data-sel={i === sel ? '1' : '0'}
+                    onMouseEnter={() => setSel(i)}
+                    onClick={() => run(item)}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13.5px]',
+                      i === sel ? 'bg-[var(--accent)] text-[var(--foreground)]' : 'hover:bg-[var(--secondary)]',
+                    )}
+                  >
+                    <Search className="h-3.5 w-3.5 flex-none text-[var(--muted-foreground)]" />
+                    <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                    {item.hint && <em className="max-w-45 truncate text-[12px] not-italic text-[var(--muted-foreground)]">{item.hint}</em>}
+                  </button>
+                )
+              })}
+            </>
+          )}
           {fuzzyFiles.length > 0 && (
             <>
               <div className="px-2.5 pt-1.5 pb-1 text-[11px] tracking-wide text-[var(--muted-foreground)]">文件</div>
@@ -249,7 +354,11 @@ export function CommandPalette() {
                       i === sel ? 'bg-[var(--accent)] text-[var(--foreground)]' : 'hover:bg-[var(--secondary)]',
                     )}
                   >
-                    <FileText className="h-3.5 w-3.5 flex-none text-[var(--muted-foreground)]" />
+                    {item.folder ? (
+                      <Folder className="h-3.5 w-3.5 flex-none text-[var(--muted-foreground)]" />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5 flex-none text-[var(--muted-foreground)]" />
+                    )}
                     <span className="min-w-0 flex-1 truncate">{item.title}</span>
                     {item.hint && <em className="truncate text-[12px] not-italic text-[var(--muted-foreground)]">{item.hint}</em>}
                   </button>

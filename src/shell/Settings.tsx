@@ -138,12 +138,12 @@ function ConnectionCard() {
           </label>
         </div>
         <label className="grid gap-1 text-[11.5px] text-[var(--muted-foreground)]">
-          API Key（只存服务端）
+          API Key（只存服务端；本地网关可留空）
           <Input
             type="password"
             value={form.apiKey}
             onChange={e => setForm(f => ({ ...f, apiKey: e.target.value }))}
-            placeholder={status?.settings.ai.apiKeySet ? '留空保持不变' : 'sk-…'}
+            placeholder={status?.settings.ai.apiKeySet ? '留空保持不变' : 'sk-…（本地网关可留空）'}
             spellCheck={false}
           />
         </label>

@@ -7,6 +7,7 @@ import { Tabs } from '@/shell/Tabs'
 import { Editor, ReadView } from '@/editor/Editor'
 import { GraphView } from '@/graph/GraphView'
 import { ChatView } from '@/chat/ChatView'
+import { FolderView } from '@/folder/FolderView'
 import { CommandPalette } from '@/shell/CommandPalette'
 import { SettingsDialog } from '@/shell/Settings'
 import { Button } from '@/components/ui/button'
@@ -148,7 +149,9 @@ export default function App() {
         s.setTheme(theme)
       }
       if (q.get('palette') === '1') s.setPaletteOpen(true)
+      const folder = q.get('folder')
       if (note) void s.openNote(note)
+      else if (folder) s.openFolder(folder)
       else if (view === 'graph') s.openGraph()
       else if (view === 'chat') s.openChat()
     })
@@ -186,6 +189,8 @@ export default function App() {
             <GraphView />
           ) : active?.kind === 'chat' ? (
             <ChatView />
+          ) : active?.kind === 'folder' ? (
+            <FolderView path={active.path} />
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
               在左侧选择一篇笔记开始

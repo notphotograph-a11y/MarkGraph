@@ -5,7 +5,7 @@ import { buildIndex, type VaultIndex } from '@/graph/indexer'
 import { collectPaths } from '@/editor/wikilink'
 import { bus } from '@/shell/bus'
 
-export type Tab = { kind: 'note'; path: string } | { kind: 'graph' } | { kind: 'chat' }
+export type Tab = { kind: 'note'; path: string } | { kind: 'graph' } | { kind: 'chat' } | { kind: 'folder'; path: string }
 
 interface NoteState {
   content: string
@@ -36,6 +36,7 @@ interface AppState {
   openNote: (path: string) => Promise<void>
   openGraph: () => void
   openChat: () => void
+  openFolder: (path: string) => void
   closeTab: (index: number) => void
   closeActiveTab: () => void
   setActive: (index: number) => void
@@ -120,7 +121,23 @@ export const useStore = create<AppState>((set, get) => ({
     }
     if (tree) walk(tree)
     const { tabs, activeIndex } = get()
-    const valid = tabs.filter(t => t.kind !== 'note' || paths.has(t.path))
+    const dirs = new Set<string>()
+    const walkDirs = (n: VaultNode) => {
+      n.children?.forEach(c => {
+        if (c.type === 'dir') {
+          dirs.add(c.path)
+          walkDirs(c)
+        }
+      })
+    }
+    if (tree) walkDirs(tree)
+    const valid = tabs.filter(
+      t =>
+        (t.kind === 'note' && paths.has(t.path)) ||
+        (t.kind === 'folder' && dirs.has(t.path)) ||
+        t.kind === 'graph' ||
+        t.kind === 'chat',
+    )
     let nextIndex = activeIndex
     if (valid.length === 0) nextIndex = -1
     else if (tabs[activeIndex] && valid.includes(tabs[activeIndex])) nextIndex = valid.indexOf(tabs[activeIndex])
@@ -175,6 +192,16 @@ export const useStore = create<AppState>((set, get) => ({
     set({ tabs: [...get().tabs, { kind: 'chat' }], activeIndex: tabs.length })
   },
 
+  openFolder: path => {
+    const { tabs } = get()
+    const existing = tabs.findIndex(t => t.kind === 'folder' && t.path === path)
+    if (existing >= 0) {
+      set({ activeIndex: existing })
+      return
+    }
+    set({ tabs: [...get().tabs, { kind: 'folder', path }], activeIndex: tabs.length })
+  },
+
   closeTab: index => {
     const { tabs, activeIndex } = get()
     const next = tabs.filter((_, i) => i !== index)
@@ -227,7 +254,9 @@ export const useStore = create<AppState>((set, get) => ({
     const nextContents: Record<string, string> = {}
     for (const [p, c] of Object.entries(contents)) nextContents[map(p)] = c
     set({
-      tabs: tabs.map(t => (t.kind === 'note' ? { kind: 'note', path: map(t.path) } : t)),
+      tabs: tabs.map(t =>
+        t.kind === 'note' || t.kind === 'folder' ? { kind: t.kind, path: map(t.path) } : t,
+      ),
       notes: nextNotes,
       contents: nextContents,
       lastNotePath: lastNotePath ? map(lastNotePath) : null,

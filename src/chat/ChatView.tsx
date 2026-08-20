@@ -11,6 +11,8 @@ import type { ChatSource, ChatTurn } from '@/api/types'
 import { useStore } from '@/state/store'
 import { useAiStore } from '@/state/ai'
 import { buildNameIndex, collectPaths, linkText, makeResolver, parseLink } from '@/editor/wikilink'
+import { parseOutline, type OutlineTarget } from '@/graph/indexer'
+import { bus } from '@/shell/bus'
 import { Button } from '@/components/ui/button'
 
 function escapeHtml(s: string): string {
@@ -54,6 +56,25 @@ function AnswerBody({ content }: { content: string }) {
 function SourceChips({ sources }: { sources: ChatSource[] }) {
   const openNote = useStore(s => s.openNote)
   if (!sources.length) return null
+  // 打开来源并定位到检索命中的标题段落（F17，复用 outline:goto）
+  const openSource = (s: ChatSource) => {
+    void openNote(s.path)
+    if (!s.heading) return
+    const content = useStore.getState().contents[s.path] ?? ''
+    const ol = parseOutline(content)
+    const hit = ol.find(
+      o => o.text === s.heading || o.text.includes(s.heading) || s.heading.includes(o.text),
+    )
+    if (hit) {
+      bus.emit('outline:goto', {
+        path: s.path,
+        level: hit.level,
+        text: hit.text,
+        line: hit.line,
+        index: ol.indexOf(hit),
+      } satisfies OutlineTarget)
+    }
+  }
   return (
     <div className="mb-2 flex flex-wrap items-center gap-1">
       <span className="text-[11px] text-[var(--muted-foreground)]">来源</span>
@@ -61,7 +82,7 @@ function SourceChips({ sources }: { sources: ChatSource[] }) {
         <button
           key={s.path}
           type="button"
-          onClick={() => void openNote(s.path)}
+          onClick={() => openSource(s)}
           title={s.heading ? `${s.path} · ${s.heading}` : s.path}
           className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[11px] text-[var(--mg-link)] hover:bg-[var(--accent)]"
         >
@@ -90,7 +111,7 @@ function EmptyState({ configured }: { configured: boolean }) {
       <h2 className="text-[18px] font-semibold tracking-tight">向你的笔记库提问</h2>
       <p className="max-w-sm text-[13px] leading-6 text-[var(--muted-foreground)]">
         {!configured
-          ? 'AI 未配置：在服务端 .env 设置 AI_BASE_URL、AI_API_KEY、AI_CHAT_MODEL、AI_EMBED_MODEL 后重启。'
+          ? 'AI 未配置：打开「设置」（⌘,）填网关地址与模型即可（API Key 仅云端网关需要，本地模型如 Ollama 可留空）。'
           : indexed === false
             ? '还没有建立索引。先为全库生成一次，之后保存笔记会自动跟进。'
             : '答案只依据库内笔记生成，引用的 [[链接]] 与来源都可以点击跳转。'}

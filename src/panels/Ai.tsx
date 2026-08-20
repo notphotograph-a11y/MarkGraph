@@ -107,7 +107,7 @@ function AiPanel() {
   if (!status) return <PanelEmpty text="AI 状态加载中…" />
   if (!configured) {
     return (
-      <PanelEmpty text="AI 未配置：在服务端 .env 设置 AI_BASE_URL、AI_API_KEY、AI_CHAT_MODEL、AI_EMBED_MODEL（OpenAI 兼容接口，支持 newAPI 等网关），重启后即可自动生成标签、摘要与链接。" />
+      <PanelEmpty text="AI 未配置：打开「设置」（⌘,）填网关地址与模型即可，或用服务端 .env 预配置。API Key 仅云端网关需要，本地模型（如 Ollama）可留空。" />
     )
   }
 
