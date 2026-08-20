@@ -1,21 +1,25 @@
 import { useEffect } from 'react'
-import { api, subscribeVaultEvents } from '@/api/client'
+import { api, subscribeAiEvents, subscribeVaultEvents } from '@/api/client'
 import { useStore } from '@/state/store'
+import { useAiStore } from '@/state/ai'
 import { FileTree } from '@/panels/FileTree'
 import { Tabs } from '@/shell/Tabs'
 import { Editor, ReadView } from '@/editor/Editor'
 import { GraphView } from '@/graph/GraphView'
+import { ChatView } from '@/chat/ChatView'
 import { CommandPalette } from '@/shell/CommandPalette'
 import { Button } from '@/components/ui/button'
 import { getPanels } from '@/panels/registry'
 import { registerBuiltinPanels } from '@/panels/Backlinks'
+import { registerAiPanels } from '@/panels/Ai'
 
 registerBuiltinPanels()
+registerAiPanels()
 
 function Welcome() {
   const refreshTree = useStore(s => s.refreshTree)
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8">
+    <div className="mg-fade-in flex flex-1 flex-col items-center justify-center gap-3 px-8">
       <h1 className="text-[22px] font-semibold tracking-tight">欢迎使用 MarkGraph</h1>
       <p className="max-w-sm text-center text-[13.5px] leading-6 text-[var(--muted-foreground)]">
         这个库还是空的。导入一份约 25 篇互链笔记，或在左侧新建第一篇。
@@ -125,13 +129,20 @@ export default function App() {
       if (q.get('palette') === '1') s.setPaletteOpen(true)
       if (note) void s.openNote(note)
       else if (view === 'graph') s.openGraph()
+      else if (view === 'chat') s.openChat()
     })
     const off = subscribeVaultEvents(e => {
       useStore.getState().onExternalChange(e.path, e.kind)
     })
+    // AI 富集事件（Phase 2）：面板刷新、进度与设置同步
+    void useAiStore.getState().initAi()
+    const offAi = subscribeAiEvents(e => {
+      useAiStore.getState().onEvent(e)
+    })
     return () => {
       cancelled = true
       off()
+      offAi()
     }
   }, [init])
 
@@ -152,6 +163,8 @@ export default function App() {
             <NoteView path={active.path} />
           ) : active?.kind === 'graph' ? (
             <GraphView />
+          ) : active?.kind === 'chat' ? (
+            <ChatView />
           ) : (
             <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
               在左侧选择一篇笔记开始

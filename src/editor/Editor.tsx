@@ -8,6 +8,7 @@ import { useStore } from '@/state/store'
 import { bus } from '@/shell/bus'
 import type { OutlineTarget } from '@/graph/indexer'
 import { buildNameIndex, collectPaths, linkText, makeResolver, parseLink } from './wikilink'
+import { splitFrontmatter } from '@/lib/frontmatter'
 import { markgraphDecorations } from './decorations'
 import { wikilinkCompletions } from './completions'
 import { Button } from '@/components/ui/button'
@@ -261,7 +262,8 @@ export function ReadView({ path }: { path: string }) {
 
   const html = useMemo(() => {
     if (!note) return ''
-    let src = escapeHtml(note.content)
+    // 阅读模式隐藏 frontmatter 块（F10.3），编辑模式原样可见
+    let src = escapeHtml(splitFrontmatter(note.content).body)
     src = src.replace(/\[\[([^\[\]]+?)\]\]/g, (_, inner: string) => {
       const parsed = parseLink(inner)
       const targetPath = resolve(parsed.target)

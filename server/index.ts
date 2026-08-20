@@ -16,6 +16,9 @@ import {
   VAULT_DIR,
 } from './fs-vault.js'
 import { onVaultEvent, watchVault } from './watch.js'
+import { registerAiRoutes } from './ai/routes.js'
+import { onAiEvent, scheduleEnrich } from './ai/enrich.js'
+import { dropNoteState } from './ai/store.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HOST = process.env.HOST || '127.0.0.1'
@@ -45,7 +48,10 @@ app.get('/api/notes', async () => readAllNotes())
 app.put('/api/note', async req => {
   const { path: p, content } = req.body as { path?: string; content?: string }
   if (!p || typeof content !== 'string') throw Object.assign(new Error('参数不完整'), { statusCode: 400 })
-  return writeNote(p, content)
+  const r = await writeNote(p, content)
+  // AI 富集由「用户保存」触发（防抖在内侧判断配置与幂等），不监听文件事件，避免回环
+  scheduleEnrich(p)
+  return r
 })
 
 app.post('/api/note/create', async req => {
@@ -62,8 +68,11 @@ app.post('/api/note/rename', async req => {
 
 app.post('/api/note/delete', async req => {
   const { path: p } = req.body as { path?: string }
-  if (!p) throw Object.assign(new Error('缺少 path'), { statusCode: 400 })
-  return deleteNode(p)
+  if (!p) throw Object.assign(new Error('参数不完整'), { statusCode: 400 })
+  const r = await deleteNode(p)
+  // 清掉该笔记的 AI 富集状态（向量缓存按内容 hash 自然过期，不主动清）
+  await dropNoteState(p).catch(() => undefined)
+  return r
 })
 
 // 首启导入示例库（F7：仅当 vault 为空时允许）
@@ -83,7 +92,7 @@ app.post('/api/import-sample', async () => {
   return { ok: true }
 })
 
-// SSE：vault 文件变更推送
+// SSE：vault 文件变更 + AI 富集事件推送
 app.get('/api/events', async (req, reply) => {
   reply.raw.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -94,11 +103,20 @@ app.get('/api/events', async (req, reply) => {
   const off = onVaultEvent(e => {
     reply.raw.write(`event: ${e.kind}\ndata: ${JSON.stringify({ path: e.path })}\n\n`)
   })
-  req.raw.on('close', off)
+  const offAi = onAiEvent(e => {
+    reply.raw.write(`event: ai\ndata: ${JSON.stringify(e)}\n\n`)
+  })
+  req.raw.on('close', () => {
+    off()
+    offAi()
+  })
   await new Promise<void>(() => {
     /* 保持连接 */
   })
 })
+
+// Phase 2：AI 富集端点（薄路由，逻辑在 server/ai/）
+registerAiRoutes(app)
 
 // 生产模式：托管前端静态文件（dist 存在时）
 // dev（tsx，__dirname=server）：../dist；prod（server/dist）：../../dist

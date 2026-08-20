@@ -5,7 +5,7 @@ import { buildIndex, type VaultIndex } from '@/graph/indexer'
 import { collectPaths } from '@/editor/wikilink'
 import { bus } from '@/shell/bus'
 
-export type Tab = { kind: 'note'; path: string } | { kind: 'graph' }
+export type Tab = { kind: 'note'; path: string } | { kind: 'graph' } | { kind: 'chat' }
 
 interface NoteState {
   content: string
@@ -34,6 +34,7 @@ interface AppState {
   rebuildIndex: () => void
   openNote: (path: string) => Promise<void>
   openGraph: () => void
+  openChat: () => void
   closeTab: (index: number) => void
   closeActiveTab: () => void
   setActive: (index: number) => void
@@ -116,7 +117,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
     if (tree) walk(tree)
     const { tabs, activeIndex } = get()
-    const valid = tabs.filter(t => t.kind === 'graph' || paths.has(t.path))
+    const valid = tabs.filter(t => t.kind !== 'note' || paths.has(t.path))
     let nextIndex = activeIndex
     if (valid.length === 0) nextIndex = -1
     else if (tabs[activeIndex] && valid.includes(tabs[activeIndex])) nextIndex = valid.indexOf(tabs[activeIndex])
@@ -158,7 +159,17 @@ export const useStore = create<AppState>((set, get) => ({
       set({ activeIndex: existing })
       return
     }
-    set({ tabs: [...tabs, { kind: 'graph' }], activeIndex: tabs.length })
+    set({ tabs: [...get().tabs, { kind: 'graph' }], activeIndex: tabs.length })
+  },
+
+  openChat: () => {
+    const { tabs } = get()
+    const existing = tabs.findIndex(t => t.kind === 'chat')
+    if (existing >= 0) {
+      set({ activeIndex: existing })
+      return
+    }
+    set({ tabs: [...get().tabs, { kind: 'chat' }], activeIndex: tabs.length })
   },
 
   closeTab: index => {
@@ -182,7 +193,14 @@ export const useStore = create<AppState>((set, get) => ({
 
   setTheme: t => {
     localStorage.setItem(THEME_KEY, t)
-    set({ theme: t })
+    const apply = () => set({ theme: t })
+    // 主题切换交叉淡化：View Transition 不支持或用户要求减少动态时瞬切
+    const doc = document as Document & {
+      startViewTransition?: (cb: () => void) => unknown
+    }
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (typeof doc.startViewTransition === 'function' && !reduce) doc.startViewTransition(apply)
+    else apply()
   },
 
   setEditMode: m => set({ editMode: m }),

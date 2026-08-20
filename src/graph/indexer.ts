@@ -11,6 +11,7 @@ import {
   makeResolver,
   parseLink,
 } from '@/editor/wikilink'
+import { fmTags, splitFrontmatter } from '@/lib/frontmatter'
 
 /** 幽灵节点（断链目标）id 前缀 */
 export const GHOST_PREFIX = 'ghost:'
@@ -89,7 +90,13 @@ export function buildIndex(contents: Map<string, string>): VaultIndex {
 
   for (const [sourcePath, content] of contents) {
         const resolve = makeResolver(nameIndex, sourcePath)
-    for (const line of content.split('\n')) {
+    // frontmatter 里的 AI/人工标签与正文 #标签 同源（F10.2）
+    for (const t of fmTags(splitFrontmatter(content).fm)) {
+      const arr = tags.get(t) ?? []
+      if (!arr.includes(sourcePath)) arr.push(sourcePath)
+      tags.set(t, arr)
+    }
+    for (const line of splitFrontmatter(content).body.split('\n')) {
       WIKILINK_RE.lastIndex = 0
       for (const m of line.matchAll(WIKILINK_RE)) {
         const parsed = parseLink(m[1])

@@ -5,6 +5,7 @@
 import { api } from '@/api/client'
 import type { ThemeId } from '@/api/types'
 import { useStore } from '@/state/store'
+import { useAiStore } from '@/state/ai'
 import { bus } from './bus'
 
 export interface Command {
@@ -39,6 +40,12 @@ export function listCommands(): Command[] {
       run: () => s.openGraph(),
     },
     {
+      id: 'open-chat',
+      title: '打开问答',
+      keywords: 'chat ask 问答 提问 rag',
+      run: () => s.openChat(),
+    },
+    {
       id: 'toggle-mode',
       title: '切换编辑/阅读模式',
       keywords: 'edit read 编辑 阅读',
@@ -71,6 +78,28 @@ export function listCommands(): Command[] {
         await s.refreshTree()
       },
     })
+  }
+  // AI 命令（F10.4）：已配置才出现
+  if (useAiStore.getState().status?.configured) {
+    cmds.push(
+      {
+        id: 'ai-enrich-note',
+        title: 'AI：为当前笔记生成标签/摘要/链接',
+        keywords: 'ai enrich 生成 标签 摘要 链接',
+        run: () => {
+          const cur = useStore.getState()
+          const tab = cur.activeIndex >= 0 ? cur.tabs[cur.activeIndex] : null
+          const p = tab?.kind === 'note' ? tab.path : null
+          if (p) void useAiStore.getState().enrichNow(p)
+        },
+      },
+      {
+        id: 'ai-enrich-all',
+        title: 'AI：为全库生成索引',
+        keywords: 'ai enrich all 全库 索引 向量',
+        run: () => void useAiStore.getState().enrichAll(),
+      },
+    )
   }
   return cmds
 }

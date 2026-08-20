@@ -6,3 +6,4 @@ server/dist/
 !.env.example
 .DS_Store
 *.log
+gui-test-screenshots/

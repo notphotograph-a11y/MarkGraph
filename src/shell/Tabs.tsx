@@ -5,6 +5,7 @@ import { collectPaths } from '@/editor/wikilink'
 
 function tabTitle(tab: { kind: string; path?: string }, treePaths: string[]): string {
   if (tab.kind === 'graph') return '图谱'
+  if (tab.kind === 'chat') return '问答'
   const name = tab.path!.split('/').pop() ?? ''
   const base = name.replace(/\.md$/i, '')
   // F2.8：同名笔记以相对路径区分显示
@@ -40,7 +41,7 @@ export function Tabs() {
         )}
         {tabs.map((tab, i) => (
           <button
-            key={tab.kind === 'graph' ? 'graph' : tab.path}
+            key={tab.kind === 'note' ? tab.path : tab.kind}
             onClick={() => setActive(i)}
             className={cn(
               'group relative flex min-w-0 items-center gap-1.5 self-end mb-[1px] rounded-t-lg px-3 py-1.5 text-[13px]',
@@ -61,7 +62,7 @@ export function Tabs() {
               <X className="h-3 w-3" />
             </span>
             {i === activeIndex && (
-              <i className="absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[var(--primary)]" />
+              <i className="mg-tab-line absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[var(--primary)]" />
             )}
           </button>
         ))}

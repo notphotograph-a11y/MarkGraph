@@ -3,8 +3,9 @@
  * 顶部下拉玻璃面板；Esc / 点遮罩关闭。
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Terminal } from 'lucide-react'
+import { FileText, Sparkles, Terminal } from 'lucide-react'
 import { useStore } from '@/state/store'
+import { useAiStore } from '@/state/ai'
 import { fuzzyScore } from '@/editor/completions'
 import { listCommands } from './commands'
 import { cn } from '@/lib/utils'
@@ -44,8 +45,27 @@ export function CommandPalette() {
   const tree = useStore(s => s.tree)
   const [query, setQuery] = useState('')
   const [sel, setSel] = useState(0)
+  const [sem, setSem] = useState<{ path: string; score: number }[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const aiConfigured = !!useAiStore(s => s.status?.configured)
+
+  // 语义搜索（F12.1）：≥4 字防抖 300ms；失败静默降级为文件名 fuzzy
+  useEffect(() => {
+    const q = query.trim()
+    if (!open || !aiConfigured || q.length < 4) {
+      setSem([])
+      return
+    }
+    const t = window.setTimeout(() => {
+      useAiStore
+        .getState()
+        .search(q)
+        .then(results => setSem(results.filter(r => r.score > 0.1)))
+        .catch(() => setSem([]))
+    }, 300)
+    return () => window.clearTimeout(t)
+  }, [query, open, aiConfigured])
 
   const items = useMemo<Item[]>(() => {
     const q = query.trim()
@@ -69,6 +89,18 @@ export function CommandPalette() {
           : a.path.localeCompare(b.path, 'zh'),
       )
 
+    const semPaths = new Set(sem.map(r => r.path))
+    const semItems: FileItem[] = sem
+      .filter(r => index?.nodes.some(n => n.id === r.path))
+      .map(r => ({
+        kind: 'file' as const,
+        id: `sem:${r.path}`,
+        title: r.path.split('/').pop()!.replace(/\.md$/i, ''),
+        hint: fileHint(r.path),
+        path: r.path,
+        score: 1,
+      }))
+
     const cmds: CmdItem[] = listCommands()
       .map(c => {
         const score = q ? Math.max(fuzzyScore(q, c.title), fuzzyScore(q, c.keywords)) : 1
@@ -85,8 +117,8 @@ export function CommandPalette() {
       .sort((a, b) => b.score - a.score)
 
     const fileLimit = q ? 12 : 8
-    return [...files.slice(0, fileLimit), ...cmds]
-  }, [query, index, open, theme, tree])
+    return [...semItems, ...files.filter(f => !semPaths.has(f.path)).slice(0, fileLimit), ...cmds]
+  }, [query, index, open, theme, tree, sem])
 
   useEffect(() => {
     if (!open) return
@@ -127,6 +159,8 @@ export function CommandPalette() {
   if (!open) return null
 
   const files = items.filter((i): i is FileItem => i.kind === 'file')
+  const semFiles = files.filter(f => f.id.startsWith('sem:'))
+  const fuzzyFiles = files.filter(f => !f.id.startsWith('sem:'))
   const cmds = items.filter((i): i is CmdItem => i.kind === 'command')
 
   return (
@@ -173,7 +207,32 @@ export function CommandPalette() {
           {items.length === 0 && (
             <p className="px-3 py-6 text-center text-sm text-[var(--muted-foreground)]">没有匹配项</p>
           )}
-          {files.length > 0 && (
+          {semFiles.length > 0 && (
+            <>
+              <div className="px-2.5 pt-1.5 pb-1 text-[11px] tracking-wide text-[var(--muted-foreground)]">语义相关</div>
+              {semFiles.map(item => {
+                const i = items.indexOf(item)
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    data-sel={i === sel ? '1' : '0'}
+                    onMouseEnter={() => setSel(i)}
+                    onClick={() => run(item)}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-[13.5px]',
+                      i === sel ? 'bg-[var(--accent)] text-[var(--foreground)]' : 'hover:bg-[var(--secondary)]',
+                    )}
+                  >
+                    <Sparkles className="h-3.5 w-3.5 flex-none text-[var(--mg-link)]" />
+                    <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                    {item.hint && <em className="truncate text-[12px] not-italic text-[var(--muted-foreground)]">{item.hint}</em>}
+                  </button>
+                )
+              })}
+            </>
+          )}
+          {fuzzyFiles.length > 0 && (
             <>
               <div className="px-2.5 pt-1.5 pb-1 text-[11px] tracking-wide text-[var(--muted-foreground)]">文件</div>
               {files.map(item => {

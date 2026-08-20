@@ -459,3 +459,130 @@ body {
 [data-theme="obsidian"] .mg-palette-mask {
   background: rgba(0, 0, 0, 0.35);
 }
+
+/* ============ 动效层：每套主题一套运动性格 ============ */
+/* 原则（docs/03 增补）：仅 transform/opacity；hover/按压 90-140ms、面板入场 130-240ms；
+   曲线取标准表——(0.23,1,0.32,1) 强 ease-out / (0.32,0.72,0,1) iOS 抽屉 / easeOutBack 回弹。
+   --mg-ease-ui 管色彩类过渡（所有主题一致，不回弹）；--mg-ease-pop 管入场位移（按主题分化）。 */
+:root,
+[data-theme="apple"] {
+  --mg-dur-hover: 130ms;
+  --mg-dur-panel: 210ms;
+  --mg-ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --mg-ease-pop: cubic-bezier(0.32, 0.72, 0, 1); /* 液态玻璃：流体感 */
+  --mg-pop-y: 10px;
+  --mg-pop-scale: 0.985;
+}
+[data-theme="paper"] {
+  --mg-dur-hover: 120ms;
+  --mg-dur-panel: 160ms;
+  --mg-ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --mg-ease-pop: cubic-bezier(0.23, 1, 0.32, 1); /* 纸感：克制利落，不缩放 */
+  --mg-pop-y: 4px;
+  --mg-pop-scale: 1;
+}
+[data-theme="obsidian"] {
+  --mg-dur-hover: 120ms;
+  --mg-dur-panel: 180ms;
+  --mg-ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --mg-ease-pop: cubic-bezier(0.23, 1, 0.32, 1); /* 经典深色：中性工具感 */
+  --mg-pop-y: 6px;
+  --mg-pop-scale: 1;
+}
+[data-theme="x"] {
+  --mg-dur-hover: 90ms; /* 纯黑：最快，接近即时 */
+  --mg-dur-panel: 130ms;
+  --mg-ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --mg-ease-pop: cubic-bezier(0.23, 1, 0.32, 1);
+  --mg-pop-y: 2px;
+  --mg-pop-scale: 1;
+}
+[data-theme="meta"] {
+  --mg-dur-hover: 140ms;
+  --mg-dur-panel: 240ms;
+  --mg-ease-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --mg-ease-pop: cubic-bezier(0.34, 1.4, 0.64, 1); /* 卡片：轻回弹 */
+  --mg-pop-y: 8px;
+  --mg-pop-scale: 0.96;
+}
+
+/* 交互面色彩过渡：hover/按压反馈从瞬跳变为近阈值级平滑 */
+button,
+a,
+[role="button"],
+input,
+textarea,
+select,
+summary,
+label {
+  transition:
+    background-color var(--mg-dur-hover) var(--mg-ease-ui),
+    color var(--mg-dur-hover) var(--mg-ease-ui),
+    border-color var(--mg-dur-hover) var(--mg-ease-ui),
+    box-shadow var(--mg-dur-hover) var(--mg-ease-ui),
+    opacity var(--mg-dur-hover) var(--mg-ease-ui);
+}
+.cm-mg-link,
+.cm-mg-broken,
+.rd-link {
+  transition:
+    background-color var(--mg-dur-hover) var(--mg-ease-ui),
+    border-bottom-color var(--mg-dur-hover) var(--mg-ease-ui);
+}
+
+/* 命令面板入场：遮罩淡入 + 面板按主题位移/缩放（关闭保持即时，高频操作不拖尾） */
+@keyframes mg-mask-in {
+  from { opacity: 0; }
+}
+@keyframes mg-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--mg-pop-y)) scale(var(--mg-pop-scale));
+  }
+}
+.mg-palette-mask {
+  animation: mg-mask-in calc(var(--mg-dur-panel) * 0.8) var(--mg-ease-ui);
+}
+.mg-palette {
+  animation: mg-pop-in var(--mg-dur-panel) var(--mg-ease-pop);
+}
+
+/* 标签页激活下划线：从中线展开 */
+@keyframes mg-tab-line-in {
+  from { transform: scaleX(0); opacity: 0; }
+}
+.mg-tab-line {
+  transform-origin: center;
+  animation: mg-tab-line-in 180ms var(--mg-ease-pop);
+}
+
+/* 消息与空态入场（偶发层级）：轻抬升淡入 */
+@keyframes mg-msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+.mg-msg {
+  animation: mg-msg-in 160ms var(--mg-ease-pop) both;
+}
+@keyframes mg-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+.mg-fade-in {
+  animation: mg-fade-in 240ms var(--mg-ease-ui) both;
+}
+
+/* 主题切换交叉淡化（store.setTheme 经 View Transition API 触发；不支持时自动瞬切） */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--mg-dur-panel);
+}
+
+/* 减少动态效果：保留色彩过渡的可读性，去掉位移与循环 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
