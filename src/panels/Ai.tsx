@@ -37,6 +37,7 @@ const segBtn =
 function SettingsSection() {
   const status = useAiStore(s => s.status)
   const saveSettings = useAiStore(s => s.saveSettings)
+  const saveError = useAiStore(s => s.saveError)
   if (!status) return null
   const s = status.settings
 
@@ -109,6 +110,9 @@ function SettingsSection() {
         <p className="text-[11px] leading-4 text-[var(--muted-foreground)]">
           标签/摘要只写 frontmatter；链接以原句定位插到行末。每次 AI 写入都有备份，可撤销。
         </p>
+        {saveError && (
+          <p className="text-[11px] text-[var(--mg-broken)]">保存失败：{saveError}</p>
+        )}
       </div>
     </details>
   )

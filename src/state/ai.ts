@@ -10,6 +10,8 @@ interface AiState {
   status: AiStatus | null
   views: Record<string, AiNoteView>
   progress: { done: number; total: number } | null
+  /** 最近一次设置保存失败的原因（null=正常）；服务不可达时按钮看起来"按不动"，必须给反馈 */
+  saveError: string | null
   initAi: () => Promise<void>
   refreshStatus: () => Promise<void>
   loadView: (path: string) => Promise<void>
@@ -26,6 +28,7 @@ export const useAiStore = create<AiState>((set, get) => ({
   status: null,
   views: {},
   progress: null,
+  saveError: null,
 
   initAi: async () => {
     await get().refreshStatus()
@@ -50,9 +53,14 @@ export const useAiStore = create<AiState>((set, get) => ({
   },
 
   saveSettings: async patch => {
-    const settings = await api.aiSaveSettings(patch)
-    const status = get().status
-    if (status) set({ status: { ...status, settings } })
+    try {
+      const settings = await api.aiSaveSettings(patch)
+      const status = get().status
+      if (status) set({ status: { ...status, settings }, saveError: null })
+      else set({ saveError: null })
+    } catch (err) {
+      set({ saveError: (err as Error).message || '服务不可达' })
+    }
   },
 
   enrichNow: async path => {

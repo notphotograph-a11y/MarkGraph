@@ -205,6 +205,7 @@ function ConnectionCard() {
 function BehaviorCard() {
   const status = useAiStore(s => s.status)
   const saveSettings = useAiStore(s => s.saveSettings)
+  const saveError = useAiStore(s => s.saveError)
   if (!status) return null
   const s = status.settings
   return (
@@ -228,7 +229,7 @@ function BehaviorCard() {
           />
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-[13px]">单次自动插链上限</span>
+          <span className="text-[13px]">单次自动插链上限（当前 {s.maxAutoLinks}）</span>
           <Seg
             value={String(s.maxAutoLinks) as '1' | '2' | '3' | '5' | '10'}
             options={[['1', '1'], ['2', '2'], ['3', '3'], ['5', '5'], ['10', '10']]}
@@ -236,6 +237,11 @@ function BehaviorCard() {
           />
         </div>
       </div>
+      {saveError && (
+        <p className="mt-2 text-[11.5px] text-[var(--mg-broken)]">
+          保存失败：{saveError}（请确认服务是否在运行）
+        </p>
+      )}
     </section>
   )
 }
