@@ -9,7 +9,7 @@ import { useStore } from '@/state/store'
 import { useAiStore } from '@/state/ai'
 import type { AiLinkMode } from '@/api/types'
 import { registerPanel } from './registry'
-import { cn } from '@/lib/utils'
+import { Seg } from '@/components/ui/seg'
 
 /** 当前激活笔记路径（非笔记 tab 时为 null） */
 function useActiveNotePath(): string | null {
@@ -31,9 +31,6 @@ function PanelEmpty({ text }: { text: string }) {
 
 /* ============ 设置 ============ */
 
-const segBtn =
-  'rounded-md px-2 py-0.5 text-[11px] leading-4 transition-colors hover:bg-[var(--secondary)]'
-
 function SettingsSection() {
   const status = useAiStore(s => s.status)
   const saveSettings = useAiStore(s => s.saveSettings)
@@ -52,60 +49,27 @@ function SettingsSection() {
       <div className="mt-1.5 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[12px]">自动标签</span>
-          <div className="flex gap-0.5 rounded-md bg-[var(--secondary)] p-0.5">
-            {[
-              [true, '开'],
-              [false, '关'],
-            ].map(([v, label]) => (
-              <button
-                key={String(v)}
-                type="button"
-                onClick={() => void saveSettings({ autoTags: v as boolean })}
-                className={cn(segBtn, s.autoTags === v && 'bg-[var(--background)] shadow-sm')}
-              >
-                {label as string}
-              </button>
-            ))}
-          </div>
+          <Seg
+            value={s.autoTags}
+            options={[[true, '开'], [false, '关']]}
+            onChange={v => void saveSettings({ autoTags: v })}
+          />
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[12px]">自动摘要</span>
-          <div className="flex gap-0.5 rounded-md bg-[var(--secondary)] p-0.5">
-            {[
-              [true, '开'],
-              [false, '关'],
-            ].map(([v, label]) => (
-              <button
-                key={String(v)}
-                type="button"
-                onClick={() => void saveSettings({ autoSummary: v as boolean })}
-                className={cn(segBtn, s.autoSummary === v && 'bg-[var(--background)] shadow-sm')}
-              >
-                {label as string}
-              </button>
-            ))}
-          </div>
+          <Seg
+            value={s.autoSummary}
+            options={[[true, '开'], [false, '关']]}
+            onChange={v => void saveSettings({ autoSummary: v })}
+          />
         </div>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[12px]">自动连接</span>
-          <div className="flex gap-0.5 rounded-md bg-[var(--secondary)] p-0.5">
-            {(
-              [
-                ['auto', '全自动'],
-                ['suggest', '仅建议'],
-                ['off', '关'],
-              ] as [AiLinkMode, string][]
-            ).map(([v, label]) => (
-              <button
-                key={v}
-                type="button"
-                onClick={() => setLinkMode(v)}
-                className={cn(segBtn, s.autoLinks === v && 'bg-[var(--background)] shadow-sm')}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <Seg
+            value={s.autoLinks}
+            options={[['auto', '全自动'], ['suggest', '仅建议'], ['off', '关']] as [AiLinkMode, string][]}
+            onChange={setLinkMode}
+          />
         </div>
         <p className="text-[11px] leading-4 text-[var(--muted-foreground)]">
           标签/摘要只写 frontmatter；链接以原句定位插到行末。每次 AI 写入都有备份，可撤销。

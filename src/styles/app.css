@@ -570,6 +570,14 @@ label {
   animation: mg-fade-in 240ms var(--mg-ease-ui) both;
 }
 
+/* 设置对话框卡片 stagger 入场（30-80ms 间隔规范） */
+@keyframes mg-card-in {
+  from { opacity: 0; transform: translateY(6px); }
+}
+.mg-settings-card {
+  animation: mg-card-in 200ms var(--mg-ease-pop) both;
+}
+
 /* 主题切换交叉淡化（store.setTheme 经 View Transition API 触发；不支持时自动瞬切） */
 ::view-transition-old(root),
 ::view-transition-new(root) {

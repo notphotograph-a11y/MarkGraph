@@ -13,6 +13,7 @@ import type { AiLinkMode } from '@/api/types'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Seg } from '@/components/ui/seg'
 import {
   Dialog,
   DialogContent,
@@ -33,34 +34,6 @@ function CardTitle({ icon, children }: { icon: React.ReactNode; children: React.
     <div className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--muted-foreground)]">
       {icon}
       {children}
-    </div>
-  )
-}
-
-const segBtn =
-  'rounded-md px-2.5 py-1 text-[12px] leading-4 transition-colors hover:bg-[var(--secondary)]'
-
-function Seg<T extends string | boolean>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T
-  options: [T, string][]
-  onChange: (v: T) => void
-}) {
-  return (
-    <div className="flex gap-0.5 rounded-md bg-[var(--secondary)] p-0.5">
-      {options.map(([v, label]) => (
-        <button
-          key={String(v)}
-          type="button"
-          onClick={() => onChange(v)}
-          className={cn(segBtn, value === v && 'bg-[var(--background)] font-medium shadow-sm')}
-        >
-          {label}
-        </button>
-      ))}
     </div>
   )
 }
@@ -126,7 +99,7 @@ function ConnectionCard() {
   }
 
   return (
-    <section className="rounded-xl border border-[var(--border)] p-4">
+    <section className="mg-settings-card rounded-xl border border-[var(--border)] p-4">
       <CardTitle icon={<Plug className="h-3.5 w-3.5" />}>AI 接入</CardTitle>
       <p className="mt-1 text-[11.5px] leading-4 text-[var(--muted-foreground)]">
         OpenAI 兼容接口（newAPI 等网关）。此处配置优先于 .env，保存后即时生效。
@@ -209,7 +182,7 @@ function BehaviorCard() {
   if (!status) return null
   const s = status.settings
   return (
-    <section className="rounded-xl border border-[var(--border)] p-4">
+    <section className="mg-settings-card rounded-xl border border-[var(--border)] p-4" style={{ animationDelay: '40ms' }}>
       <CardTitle icon={<Sparkles className="h-3.5 w-3.5" />}>AI 行为</CardTitle>
       <div className="mt-3 space-y-2.5">
         <div className="flex items-center justify-between">
@@ -251,7 +224,7 @@ function AppearanceCard() {
   const theme = useStore(s => s.theme)
   const setTheme = useStore(s => s.setTheme)
   return (
-    <section className="rounded-xl border border-[var(--border)] p-4">
+    <section className="mg-settings-card rounded-xl border border-[var(--border)] p-4" style={{ animationDelay: '80ms' }}>
       <CardTitle icon={<Palette className="h-3.5 w-3.5" />}>外观</CardTitle>
       <div className="mt-3 grid grid-cols-5 gap-1.5">
         {THEMES.map(t => (
@@ -279,7 +252,7 @@ export function SettingsDialog() {
   const setOpen = useStore(s => s.setSettingsOpen)
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="mg-fade-in max-h-[85vh] gap-0 overflow-y-auto sm:max-w-lg">
+      <DialogContent className="max-h-[85vh] gap-0 overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>设置</DialogTitle>
         </DialogHeader>
