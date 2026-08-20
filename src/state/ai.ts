@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand'
 import { api } from '@/api/client'
-import type { AiEvent, AiNoteView, AiSettings, AiStatus } from '@/api/types'
+import type { AiEvent, AiNoteView, AiSettingsPatch, AiStatus } from '@/api/types'
 
 interface AiState {
   status: AiStatus | null
@@ -13,7 +13,7 @@ interface AiState {
   initAi: () => Promise<void>
   refreshStatus: () => Promise<void>
   loadView: (path: string) => Promise<void>
-  saveSettings: (patch: Partial<AiSettings>) => Promise<void>
+  saveSettings: (patch: AiSettingsPatch) => Promise<void>
   enrichNow: (path: string) => Promise<void>
   enrichAll: () => Promise<void>
   apply: (path: string, target: string, anchor: string) => Promise<void>

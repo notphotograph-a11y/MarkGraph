@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { api, subscribeAiEvents, subscribeVaultEvents } from '@/api/client'
 import { useStore } from '@/state/store'
 import { useAiStore } from '@/state/ai'
@@ -8,6 +8,7 @@ import { Editor, ReadView } from '@/editor/Editor'
 import { GraphView } from '@/graph/GraphView'
 import { ChatView } from '@/chat/ChatView'
 import { CommandPalette } from '@/shell/CommandPalette'
+import { SettingsDialog } from '@/shell/Settings'
 import { Button } from '@/components/ui/button'
 import { getPanels } from '@/panels/registry'
 import { registerBuiltinPanels } from '@/panels/Backlinks'
@@ -18,6 +19,8 @@ registerAiPanels()
 
 function Welcome() {
   const refreshTree = useStore(s => s.refreshTree)
+  const [importing, setImporting] = useState(false)
+  const [error, setError] = useState('')
   return (
     <div className="mg-fade-in flex flex-1 flex-col items-center justify-center gap-3 px-8">
       <h1 className="text-[22px] font-semibold tracking-tight">欢迎使用 MarkGraph</h1>
@@ -26,13 +29,23 @@ function Welcome() {
       </p>
       <Button
         size="lg"
+        disabled={importing}
         onClick={async () => {
-          await api.importSample().catch(() => undefined)
-          await refreshTree()
+          setImporting(true)
+          setError('')
+          try {
+            await api.importSample()
+            await refreshTree()
+          } catch (err) {
+            setError(`导入失败：${(err as Error).message}`)
+          } finally {
+            setImporting(false)
+          }
         }}
       >
-        导入示例库
+        {importing ? '导入中…' : '导入示例库'}
       </Button>
+      {error && <p className="text-[12.5px] text-[var(--mg-broken)]">{error}</p>}
     </div>
   )
 }
@@ -106,7 +119,11 @@ export default function App() {
   // Cmd/Ctrl+E 切换编辑/阅读（F2.6）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault()
+        const s = useStore.getState()
+        s.setSettingsOpen(!s.settingsOpen)
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
         e.preventDefault()
         const s = useStore.getState()
         s.setEditMode(s.editMode === 'edit' ? 'read' : 'edit')
@@ -178,6 +195,7 @@ export default function App() {
         <RightPanel />
       </aside>
       <CommandPalette />
+      <SettingsDialog />
     </div>
   )
 }

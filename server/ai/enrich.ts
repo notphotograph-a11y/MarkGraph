@@ -4,8 +4,8 @@
  * 触发源只有「用户保存」与「手动命令」，不监听文件变更，天然无回环。
  */
 import { readNote, writeNote, readTree, type VaultNode } from '../fs-vault.js'
-import { readAiEnv, isConfigured, DEBOUNCE_MS, type AiEnv } from './config.js'
-import { loadSettings } from './settings.js'
+import { getAiConfig, isComplete, DEBOUNCE_MS, type AiEnv } from './config.js'
+import { loadSettings, type AiSettingsPublic } from './settings.js'
 import { AiError, chatJson, embed, extractJson } from './openai.js'
 import {
   fmSummary,
@@ -22,7 +22,7 @@ import { chunkNote } from './rag.js'
 export type AiEvent =
   | { type: 'note'; path: string }
   | { type: 'progress'; done: number; total: number }
-  | { type: 'settings'; settings: Awaited<ReturnType<typeof loadSettings>> }
+  | { type: 'settings'; settings: AiSettingsPublic }
 
 const aiHandlers = new Set<(e: AiEvent) => void>()
 
@@ -95,8 +95,8 @@ async function embedNote(env: AiEnv, hash: string, body: string): Promise<number
 }
 
 export async function enrichNote(path: string): Promise<void> {
-  const env = readAiEnv()
-  if (!isConfigured(env)) return
+  const env = await getAiConfig()
+  if (!isComplete(env)) return
   const settings = await loadSettings()
   if (!settings.autoTags && !settings.autoSummary && settings.autoLinks === 'off') return
 
@@ -368,8 +368,8 @@ export async function relatedNotes(path: string, k = 6): Promise<{ path: string;
 }
 
 export async function semanticSearch(q: string): Promise<{ path: string; score: number }[]> {
-  const env = readAiEnv()
-  if (!isConfigured(env)) return []
+  const env = await getAiConfig()
+  if (!isComplete(env)) return []
   const [qv] = await embed(env, [q])
   const all = await store.allVectors()
   return [...all]

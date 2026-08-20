@@ -22,11 +22,35 @@ export type ThemeId = 'apple' | 'paper' | 'obsidian' | 'x' | 'meta'
 
 export type AiLinkMode = 'off' | 'suggest' | 'auto'
 
+/** 设置的对外形状：key 只给掩码（N11.1），完整值永不出服务端 */
 export interface AiSettings {
   autoTags: boolean
   autoSummary: boolean
   autoLinks: AiLinkMode
   maxAutoLinks: number
+  ai: {
+    baseUrl: string
+    chatModel: string
+    embedModel: string
+    apiKeyMasked: string
+    apiKeySet: boolean
+  }
+}
+
+/** PUT 载荷：ai.apiKey 留空 = 保持原值 */
+export interface AiSettingsPatch {
+  autoTags?: boolean
+  autoSummary?: boolean
+  autoLinks?: AiLinkMode
+  maxAutoLinks?: number
+  ai?: { baseUrl?: string; apiKey?: string; chatModel?: string; embedModel?: string }
+}
+
+export interface TestConnectionResult {
+  reachable: boolean
+  embedOk: boolean
+  chatOk: boolean
+  error: string
 }
 
 export interface AiStatus {

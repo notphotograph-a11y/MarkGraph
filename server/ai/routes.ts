@@ -1,11 +1,11 @@
 /**
  * /api/ai/* 路由（薄层）：只做参数校验与向服务层转调，不含业务逻辑。
- * 未配置 AI 时 status 可用（configured=false），其余端点 503。
+ * 未配置 AI（.env 与 UI 设置都缺）时 status 可用（configured=false），其余端点 503。
  */
 import type { FastifyInstance } from 'fastify'
-import { isConfigured, readAiEnv } from './config.js'
-import { loadSettings, saveSettings, type AiLinkMode } from './settings.js'
-import type { ChatMessage } from './openai.js'
+import { getAiConfig, isComplete, invalidateAiConfigCache, type AiEnv } from './config.js'
+import { loadSettings, publicSettings, saveSettings, type AiLinkMode } from './settings.js'
+import { chatJson, embed, type ChatMessage } from './openai.js'
 import { askVault, hasIndex } from './rag.js'
 import {
   aiStatusSnapshot,
@@ -20,10 +20,10 @@ import {
 
 const bad = (msg: string) => Object.assign(new Error(msg), { statusCode: 400 })
 
-function requireAi(): void {
-  if (!isConfigured()) {
+async function requireAi(): Promise<void> {
+  if (!isComplete(await getAiConfig())) {
     throw Object.assign(
-      new Error('AI 未配置：请在服务端 .env 设置 AI_BASE_URL / AI_API_KEY / AI_CHAT_MODEL / AI_EMBED_MODEL 后重启'),
+      new Error('AI 未配置：在应用「设置」里填写网关地址与模型，或在服务端 .env 配置后重启'),
       { statusCode: 503 },
     )
   }
@@ -31,25 +31,25 @@ function requireAi(): void {
 
 export function registerAiRoutes(app: FastifyInstance): void {
   app.get('/api/ai/status', async () => {
-    const env = readAiEnv()
+    const env = await getAiConfig()
     return {
-      configured: isConfigured(env),
+      configured: isComplete(env),
       chatModel: env.chatModel,
       embedModel: env.embedModel,
       ...aiStatusSnapshot(),
-      settings: await loadSettings(),
+      settings: publicSettings(await loadSettings()),
     }
   })
 
   app.get('/api/ai/notes', async req => {
-    requireAi()
+    await requireAi()
     const { path: p } = req.query as { path?: string }
     if (!p) throw bad('缺少 path')
     return noteView(p)
   })
 
   app.post('/api/ai/enrich', async req => {
-    requireAi()
+    await requireAi()
     const { path: p } = req.body as { path?: string }
     if (!p) throw bad('缺少 path')
     scheduleEnrich(p, 100)
@@ -57,12 +57,12 @@ export function registerAiRoutes(app: FastifyInstance): void {
   })
 
   app.post('/api/ai/enrich-all', async () => {
-    requireAi()
+    await requireAi()
     return { ok: true, total: await scheduleEnrichAll() }
   })
 
   app.post('/api/ai/apply', async req => {
-    requireAi()
+    await requireAi()
     const { path: p, target, anchor } = req.body as { path?: string; target?: string; anchor?: string }
     if (!p || !target || !anchor) throw bad('参数不完整')
     await applySuggestion(p, target, anchor)
@@ -70,18 +70,24 @@ export function registerAiRoutes(app: FastifyInstance): void {
   })
 
   app.post('/api/ai/undo', async req => {
-    requireAi()
+    await requireAi()
     const { path: p } = req.body as { path?: string }
     if (!p) throw bad('缺少 path')
     await undoLast(p)
     return { ok: true }
   })
 
-  app.get('/api/ai/settings', async () => loadSettings())
+  app.get('/api/ai/settings', async () => publicSettings(await loadSettings()))
 
   app.put('/api/ai/settings', async req => {
-    const body = req.body as Partial<{ autoTags: boolean; autoSummary: boolean; autoLinks: AiLinkMode; maxAutoLinks: number }>
-    const patch: typeof body = {}
+    const body = req.body as Partial<{
+      autoTags: boolean
+      autoSummary: boolean
+      autoLinks: AiLinkMode
+      maxAutoLinks: number
+      ai: Partial<Record<'baseUrl' | 'apiKey' | 'chatModel' | 'embedModel', string>>
+    }>
+    const patch: Record<string, unknown> = {}
     if (typeof body.autoTags === 'boolean') patch.autoTags = body.autoTags
     if (typeof body.autoSummary === 'boolean') patch.autoSummary = body.autoSummary
     if (body.autoLinks === 'off' || body.autoLinks === 'suggest' || body.autoLinks === 'auto') {
@@ -90,13 +96,55 @@ export function registerAiRoutes(app: FastifyInstance): void {
     if (typeof body.maxAutoLinks === 'number' && Number.isFinite(body.maxAutoLinks)) {
       patch.maxAutoLinks = body.maxAutoLinks
     }
+    if (body.ai && typeof body.ai === 'object') {
+      const p: Record<string, string> = {}
+      for (const k of ['baseUrl', 'chatModel', 'embedModel'] as const) {
+        if (typeof body.ai[k] === 'string') p[k] = body.ai[k] as string
+      }
+      // key：留空/缺省 = 保持原值（N11.1）
+      if (typeof body.ai.apiKey === 'string' && body.ai.apiKey.trim()) p.apiKey = body.ai.apiKey.trim()
+      if (Object.keys(p).length) patch.ai = p
+    }
     const settings = await saveSettings(patch)
-    emitAi({ type: 'settings', settings })
-    return settings
+    invalidateAiConfigCache()
+    const pub = publicSettings(settings)
+    emitAi({ type: 'settings', settings: pub })
+    return pub
+  })
+
+  // 测试连接（F14.2）：传入值 → 已存值 → .env 逐级回退，先测后存
+  app.post('/api/ai/test-connection', async req => {
+    const body = (req.body ?? {}) as Partial<Record<'baseUrl' | 'apiKey' | 'chatModel' | 'embedModel', string>>
+    const base = await getAiConfig()
+    const pick = (v: unknown, fallback: string) => (typeof v === 'string' && v.trim() ? v.trim() : fallback)
+    const env: AiEnv = {
+      baseUrl: pick(body.baseUrl, base.baseUrl).replace(/\/+$/, ''),
+      apiKey: pick(body.apiKey, base.apiKey),
+      chatModel: pick(body.chatModel, base.chatModel),
+      embedModel: pick(body.embedModel, base.embedModel),
+    }
+    const out = { reachable: false, embedOk: false, chatOk: false, error: '' }
+    try {
+      await embed(env, ['连接测试'])
+      out.embedOk = true
+    } catch (err) {
+      out.error = (err as Error).message
+    }
+    if (env.chatModel) {
+      try {
+        const reply = await chatJson(env, '你是连通性测试助手，只输出 JSON。', '输出 {"ok":true}')
+        out.chatOk = reply.length > 0
+        if (!out.chatOk && !out.error) out.error = 'chat 模型返回为空'
+      } catch (err) {
+        if (!out.error) out.error = (err as Error).message
+      }
+    }
+    out.reachable = out.embedOk || out.chatOk
+    return out
   })
 
   app.post('/api/ai/search', async req => {
-    requireAi()
+    await requireAi()
     const { q } = req.body as { q?: string }
     if (!q || !q.trim()) throw bad('缺少 q')
     return { results: await semanticSearch(q.trim()) }
@@ -104,7 +152,7 @@ export function registerAiRoutes(app: FastifyInstance): void {
 
   // RAG 问答（F13）：SSE 流式，事件 meta(来源)/delta(增量)/error
   app.post('/api/ai/ask', async (req, reply) => {
-    requireAi()
+    await requireAi()
     const { q, history } = req.body as { q?: string; history?: { role?: string; content?: unknown }[] }
     if (!q || !q.trim()) throw bad('缺少 q')
     const cleanHistory: ChatMessage[] = (Array.isArray(history) ? history : [])
@@ -141,7 +189,7 @@ export function registerAiRoutes(app: FastifyInstance): void {
 
   // 问答空态判断（前端用它提示「先全库生成」）
   app.get('/api/ai/has-index', async () => {
-    requireAi()
+    await requireAi()
     return { indexed: await hasIndex() }
   })
 }

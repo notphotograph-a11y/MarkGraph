@@ -2,7 +2,7 @@
  * RAG 问答（F13 / docs/02 §10）：切块在富集时由 enrich 生成，
  * 这里负责「检索（块向量余弦，每篇取最佳块，top 6）→ 流式生成（带来源引用）」。
  */
-import { readAiEnv, isConfigured } from './config.js'
+import { getAiConfig, isComplete } from './config.js'
 import { chatStream, embed, type ChatMessage } from './openai.js'
 import * as store from './store.js'
 
@@ -107,8 +107,8 @@ export async function askVault(
   onMeta: (sources: RetrievedSource[]) => void,
   onDelta: (text: string) => void,
 ): Promise<void> {
-  const env = readAiEnv()
-  if (!isConfigured(env)) throw Object.assign(new Error('AI 未配置'), { statusCode: 503 })
+  const env = await getAiConfig()
+  if (!isComplete(env)) throw Object.assign(new Error('AI 未配置'), { statusCode: 503 })
 
   const [qv] = await embed(env, [q])
   const sources = await retrieve(qv)

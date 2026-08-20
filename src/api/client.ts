@@ -2,9 +2,11 @@ import type {
   AiEvent,
   AiNoteView,
   AiSettings,
+  AiSettingsPatch,
   AiStatus,
   ChatSource,
   NoteContent,
+  TestConnectionResult,
   VaultEvent,
   VaultNode,
 } from './types'
@@ -92,7 +94,7 @@ export const api = {
       body: JSON.stringify({ path }),
     }).then(r => json<{ ok: true }>(r)),
 
-  aiSaveSettings: (patch: Partial<AiSettings>) =>
+  aiSaveSettings: (patch: AiSettingsPatch) =>
     fetch('/api/ai/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -107,6 +109,14 @@ export const api = {
     }).then(r => json<{ results: { path: string; score: number }[] }>(r)),
 
   aiHasIndex: () => fetch('/api/ai/has-index').then(r => json<{ indexed: boolean }>(r)),
+
+  /** 测试连接（F14.2）：传入值 → 已存值 → .env 逐级回退，可先测后存 */
+  aiTestConnection: (conn: AiSettingsPatch['ai']) =>
+    fetch('/api/ai/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(conn ?? {}),
+    }).then(r => json<TestConnectionResult>(r)),
 
   /** RAG 问答：SSE 流式（meta 来源 / delta 增量 / error 错误） */
   aiAsk: (

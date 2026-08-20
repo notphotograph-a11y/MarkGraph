@@ -28,6 +28,7 @@ interface AppState {
   theme: ThemeId
   editMode: 'edit' | 'read'
   paletteOpen: boolean
+  settingsOpen: boolean
   init: () => Promise<void>
   refreshTree: () => Promise<void>
   syncIndex: () => Promise<void>
@@ -42,6 +43,7 @@ interface AppState {
   setEditMode: (m: 'edit' | 'read') => void
   toggleEditMode: () => void
   setPaletteOpen: (open: boolean) => void
+  setSettingsOpen: (open: boolean) => void
   remapPath: (from: string, to: string) => void
   setNoteContent: (path: string, content: string) => void
   markSaving: (path: string, saving: boolean) => void
@@ -68,6 +70,7 @@ export const useStore = create<AppState>((set, get) => ({
   theme: loadTheme(),
   editMode: 'edit',
   paletteOpen: false,
+  settingsOpen: false,
 
   init: async () => {
     await get().refreshTree()
@@ -208,6 +211,8 @@ export const useStore = create<AppState>((set, get) => ({
   toggleEditMode: () => set({ editMode: get().editMode === 'edit' ? 'read' : 'edit' }),
 
   setPaletteOpen: open => set({ paletteOpen: open }),
+
+  setSettingsOpen: open => set({ settingsOpen: open }),
 
   remapPath: (from, to) => {
     if (!from || from === to) return

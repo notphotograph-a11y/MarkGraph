@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { Settings2, X } from 'lucide-react'
 import { useStore } from '@/state/store'
 import { cn } from '@/lib/utils'
 import { collectPaths } from '@/editor/wikilink'
@@ -89,6 +89,13 @@ export function Tabs() {
             阅读
           </button>
         </div>
+        <button
+          className="flex h-[26px] w-[26px] items-center justify-center rounded-full text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
+          title="设置 (⌘,)"
+          onClick={() => useStore.getState().setSettingsOpen(true)}
+        >
+          <Settings2 className="h-3.5 w-3.5" />
+        </button>
         <button
           className="flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
           title="打开命令面板"

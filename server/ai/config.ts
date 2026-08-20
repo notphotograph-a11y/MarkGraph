@@ -1,6 +1,7 @@
-/** AI 环境配置与目录常量（F9.1）。AI 是可选能力：未配置时应用照常运行。 */
+/** AI 环境配置与目录常量（F9.1 / F14.5）。有效配置 = settings.json 的 ai 段叠加在 .env 之上。 */
 import path from 'node:path'
 import { VAULT_DIR } from '../fs-vault.js'
+import { loadSettings } from './settings.js'
 
 export interface AiEnv {
   baseUrl: string
@@ -9,6 +10,7 @@ export interface AiEnv {
   embedModel: string
 }
 
+/** .env 基线（启动时读，无 UI 配置时的默认来源） */
 export function readAiEnv(): AiEnv {
   return {
     baseUrl: (process.env.AI_BASE_URL || '').replace(/\/+$/, ''),
@@ -18,9 +20,31 @@ export function readAiEnv(): AiEnv {
   }
 }
 
-/** chat + embeddings 可用即视为已配置（向量是相关笔记/语义搜索的硬依赖） */
-export function isConfigured(env: AiEnv = readAiEnv()): boolean {
+/** chat + embeddings 齐备才视为已配置（向量是相关笔记/语义搜索/问答的硬依赖） */
+export function isComplete(env: AiEnv): boolean {
   return !!(env.baseUrl && env.apiKey && env.chatModel && env.embedModel)
+}
+
+let cache: { at: number; env: AiEnv } | null = null
+
+/** 有效配置：settings.json 优先、字段级回退 .env（3s 缓存，保存设置后主动失效） */
+export async function getAiConfig(): Promise<AiEnv> {
+  if (cache && Date.now() - cache.at < 3000) return cache.env
+  const env = readAiEnv()
+  const s = (await loadSettings()).ai
+  const merged: AiEnv = {
+    baseUrl: s.baseUrl || env.baseUrl,
+    apiKey: s.apiKey || env.apiKey,
+    chatModel: s.chatModel || env.chatModel,
+    embedModel: s.embedModel || env.embedModel,
+  }
+  cache = { at: Date.now(), env: merged }
+  return merged
+}
+
+/** 设置保存后调用，让新配置立即生效 */
+export function invalidateAiConfigCache(): void {
+  cache = null
 }
 
 /** 保存后到触发富集的防抖间隔（测试用 AI_DEBOUNCE_MS 缩短） */

@@ -46,6 +46,12 @@ export function listCommands(): Command[] {
       run: () => s.openChat(),
     },
     {
+      id: 'open-settings',
+      title: '打开设置',
+      keywords: 'settings preferences 设置 配置 偏好',
+      run: () => s.setSettingsOpen(true),
+    },
+    {
       id: 'toggle-mode',
       title: '切换编辑/阅读模式',
       keywords: 'edit read 编辑 阅读',
