@@ -143,6 +143,10 @@ export default function App() {
       const mode = q.get('mode')
       const s = useStore.getState()
       if (mode === 'read' || mode === 'edit') s.setEditMode(mode)
+      const theme = q.get('theme')
+      if (theme === 'apple' || theme === 'paper' || theme === 'obsidian' || theme === 'x' || theme === 'meta') {
+        s.setTheme(theme)
+      }
       if (q.get('palette') === '1') s.setPaletteOpen(true)
       if (note) void s.openNote(note)
       else if (view === 'graph') s.openGraph()

@@ -40,6 +40,12 @@ interface Palette {
   accent: string
   broken: string
   content: string
+  /** 每主题图谱风格（token 驱动，docs/03）：circle 实心圆 / ring 墨线勾勒 / card 圆角方块 */
+  shape: 'circle' | 'ring' | 'card'
+  halo: boolean
+  scale: number
+  edgeW: number
+  serif: boolean
 }
 
 interface ViewState {
@@ -50,6 +56,7 @@ interface ViewState {
 
 function readPalette(): Palette {
   const cs = getComputedStyle(document.documentElement)
+  const shape = cs.getPropertyValue('--mg-g-shape').trim()
   return {
     colors: [
       cs.getPropertyValue('--mg-g1').trim() || '#0071e3',
@@ -61,6 +68,11 @@ function readPalette(): Palette {
     accent: cs.getPropertyValue('--primary').trim() || '#0071e3',
     broken: cs.getPropertyValue('--mg-broken').trim() || '#c2372f',
     content: cs.getPropertyValue('--mg-content-bg').trim() || '#fff',
+    shape: shape === 'ring' || shape === 'card' ? shape : 'circle',
+    halo: cs.getPropertyValue('--mg-g-halo').trim() === '1',
+    scale: Number(cs.getPropertyValue('--mg-g-scale').trim()) || 1,
+    edgeW: Number(cs.getPropertyValue('--mg-g-edge-w').trim()) || 1,
+    serif: !!cs.getPropertyValue('--mg-font-head').trim(),
   }
 }
 
@@ -221,7 +233,7 @@ export function GraphView() {
         if (n.x == null || n.y == null) continue
         const dx = p.x - n.x
         const dy = p.y - n.y
-        const lim = radiusOf(n.degree) + 6
+        const lim = radiusOf(n.degree) * paletteRef.current.scale + 6
         const d2 = dx * dx + dy * dy
         if (d2 <= lim * lim && d2 < bestD) {
           best = n
@@ -250,7 +262,7 @@ export function GraphView() {
         const dim = hoverId != null && !lit
         ctx.globalAlpha = dim ? 0.16 : 1
         ctx.strokeStyle = lit ? palette.accent : l.resolved ? palette.edge : palette.broken
-        ctx.lineWidth = (lit ? 2 : 1) / view.scale
+        ctx.lineWidth = ((lit ? 2 : 1) * palette.edgeW) / view.scale
         if (!l.resolved) ctx.setLineDash([4 / view.scale, 4 / view.scale])
         else ctx.setLineDash([])
         ctx.beginPath()
@@ -262,12 +274,13 @@ export function GraphView() {
 
       for (const n of nodes) {
         if (n.x == null || n.y == null) continue
-        const r = radiusOf(n.degree)
+        const r = radiusOf(n.degree) * palette.scale
         const isHover = hoverId === n.id
         const isNb = !!nb?.has(n.id)
         const dim = hoverId != null && !isHover && !isNb
         ctx.globalAlpha = dim ? 0.2 : 1
         if (n.ghost) {
+          // 断链：虚线圆（各风格通用，语义优先于造型）
           ctx.fillStyle = palette.content
           ctx.strokeStyle = palette.broken
           ctx.lineWidth = 1.4 / view.scale
@@ -277,23 +290,55 @@ export function GraphView() {
           ctx.fill()
           ctx.stroke()
           ctx.setLineDash([])
+        } else if (palette.shape === 'ring') {
+          // 纸感：主题色墨线勾勒，内填纸底（遮住背后的边线）
+          ctx.fillStyle = palette.content
+          ctx.strokeStyle = palette.colors[n.colorIndex]
+          ctx.lineWidth = 2.4 / Math.max(view.scale, 0.7)
+          ctx.beginPath()
+          ctx.arc(n.x, n.y, r, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.stroke()
+        } else if (palette.shape === 'card') {
+          // 卡片：圆角方块隐喻
+          ctx.fillStyle = palette.colors[n.colorIndex]
+          ctx.beginPath()
+          ctx.roundRect(n.x - r, n.y - r, r * 2, r * 2, Math.min(6, r * 0.42))
+          ctx.fill()
         } else {
           ctx.fillStyle = palette.colors[n.colorIndex]
           ctx.beginPath()
           ctx.arc(n.x, n.y, r, 0, Math.PI * 2)
           ctx.fill()
+          if (palette.halo) {
+            // 玻璃：同色柔光环（液态感）
+            ctx.globalAlpha = (dim ? 0.2 : 1) * 0.26
+            ctx.strokeStyle = palette.colors[n.colorIndex]
+            ctx.lineWidth = 3.5
+            ctx.beginPath()
+            ctx.arc(n.x, n.y, r + 2.6, 0, Math.PI * 2)
+            ctx.stroke()
+            ctx.globalAlpha = dim ? 0.2 : 1
+          }
         }
         if (n.id === current && !n.ghost) {
           ctx.strokeStyle = palette.accent
           ctx.lineWidth = 2 / view.scale
           ctx.beginPath()
-          ctx.arc(n.x, n.y, r + 3.4 / view.scale, 0, Math.PI * 2)
+          if (palette.shape === 'card') {
+            ctx.roundRect(n.x - r - 3.4 / view.scale, n.y - r - 3.4 / view.scale, (r + 3.4 / view.scale) * 2, (r + 3.4 / view.scale) * 2, Math.min(7, r * 0.46))
+          } else {
+            ctx.arc(n.x, n.y, r + 3.4 / view.scale, 0, Math.PI * 2)
+          }
           ctx.stroke()
         }
         if (isHover || n.degree >= 4 || n.id === current) {
           ctx.globalAlpha = dim ? 0.25 : 0.92
           ctx.fillStyle = palette.label
-          ctx.font = `${11 / view.scale}px -apple-system, "PingFang SC", sans-serif`
+          const family = palette.serif
+            ? '"Songti SC", "STSong", Georgia, serif'
+            : '-apple-system, "PingFang SC", sans-serif'
+          ctx.font = `${11 / view.scale}px ${family}`
           ctx.fillText(n.name, n.x + r + 6 / view.scale, n.y + 3.5 / view.scale)
         }
       }
@@ -436,19 +481,19 @@ export function GraphView() {
   return (
     <div ref={wrapRef} className="relative min-h-0 flex-1">
       <canvas ref={canvasRef} className="mg-graph-canvas absolute inset-0 h-full w-full" />
-      <div className="pointer-events-none absolute bottom-3 left-3 rounded-full border border-[var(--border)] bg-[var(--mg-panel)] px-2.5 py-1 text-[11px] text-[var(--muted-foreground)]">
+      <div className="mg-graph-chip pointer-events-none absolute bottom-3 left-3 rounded-full border border-[var(--border)] bg-[var(--mg-panel)] px-2.5 py-1 text-[11px] text-[var(--muted-foreground)]">
         {hoverName ?? '悬停高亮邻居 · 拖拽节点 · 滚轮缩放 · 双击复位'}
       </div>
       <div className="absolute right-3 bottom-3 flex flex-col items-end gap-1.5">
         <button
           type="button"
           onClick={() => setLegendOn(v => !v)}
-          className="rounded-full border border-[var(--border)] bg-[var(--mg-panel)] px-2.5 py-1 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+          className="mg-graph-chip rounded-full border border-[var(--border)] bg-[var(--mg-panel)] px-2.5 py-1 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
         >
           图例
         </button>
         {legendOn && (
-          <ul className="min-w-28 rounded-lg border border-[var(--border)] bg-[var(--mg-panel)] px-2.5 py-2 text-[11px] text-[var(--muted-foreground)] shadow-[var(--mg-shadow)]">
+          <ul className="mg-graph-chip min-w-28 rounded-lg border border-[var(--border)] bg-[var(--mg-panel)] px-2.5 py-2 text-[11px] text-[var(--muted-foreground)] shadow-[var(--mg-shadow)]">
             {groups.map((g, i) => (
               <li key={g} className="flex items-center gap-1.5 py-0.5">
                 <i

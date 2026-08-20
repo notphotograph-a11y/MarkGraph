@@ -45,7 +45,12 @@
   --mg-g-edge: rgba(29, 29, 31, 0.16);
   --mg-g-label: #48484d;
   --mg-shadow: 0 10px 34px rgba(20, 24, 40, 0.12);
-}
+
+  /* 图谱风格：液态柔光圆点 */
+  --mg-g-shape: circle;
+  --mg-g-halo: 1;
+  --mg-g-scale: 1;
+  --mg-g-edge-w: 1;}
 
 [data-theme="paper"] {
   --background: #fbfaf7;
@@ -82,7 +87,12 @@
   --mg-g-label: #5f5a4e;
   --mg-shadow: 0 2px 8px rgba(60, 50, 30, 0.05);
   --mg-font-head: "Songti SC", "STSong", Georgia, serif;
-}
+
+  /* 图谱风格：墨线勾勒 + 衬线标签 */
+  --mg-g-shape: ring;
+  --mg-g-halo: 0;
+  --mg-g-scale: 1.05;
+  --mg-g-edge-w: 1;}
 
 [data-theme="obsidian"] {
   --background: #1e1e1e;
@@ -118,7 +128,12 @@
   --mg-g-edge: rgba(255, 255, 255, 0.13);
   --mg-g-label: #b9babe;
   --mg-shadow: none;
-}
+
+  /* 图谱风格：实心圆（经典） */
+  --mg-g-shape: circle;
+  --mg-g-halo: 0;
+  --mg-g-scale: 1;
+  --mg-g-edge-w: 1;}
 
 [data-theme="x"] {
   --background: #000000;
@@ -130,7 +145,7 @@
   --secondary: rgba(231, 233, 234, 0.08);
   --secondary-foreground: #e7e9ea;
   --muted: rgba(231, 233, 234, 0.08);
-  --muted-foreground: #71767b;
+  --muted-foreground: #838d98;
   --accent: rgba(231, 233, 234, 0.12);
   --accent-foreground: #e7e9ea;
   --destructive: #f4212e;
@@ -154,7 +169,12 @@
   --mg-g-edge: rgba(231, 233, 234, 0.14);
   --mg-g-label: #949ca4;
   --mg-shadow: none;
-}
+
+  /* 图谱风格：小号极简细线 */
+  --mg-g-shape: circle;
+  --mg-g-halo: 0;
+  --mg-g-scale: 0.8;
+  --mg-g-edge-w: 0.75;}
 
 [data-theme="meta"] {
   --background: #f0f2f5;
@@ -190,7 +210,12 @@
   --mg-g-edge: rgba(5, 5, 5, 0.13);
   --mg-g-label: #3a3b3d;
   --mg-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 2px 12px rgba(0, 0, 0, 0.1);
-}
+
+  /* 图谱风格：圆角方块（卡片隐喻） */
+  --mg-g-shape: card;
+  --mg-g-halo: 0;
+  --mg-g-scale: 1.12;
+  --mg-g-edge-w: 1;}
 
 /* 降透明度偏好：玻璃降级为实色 */
 @media (prefers-reduced-transparency: reduce) {
@@ -418,6 +443,12 @@ body {
 }
 .mg-graph-canvas.grabbing {
   cursor: grabbing;
+}
+
+/* 图谱悬浮 chip（提示条/图例）：纸感下边界加强（视觉审计遗留项） */
+[data-theme="paper"] .mg-graph-chip {
+  border-color: #d9d2c2;
+  box-shadow: 0 1px 3px rgba(60, 50, 30, 0.07);
 }
 
 /* ============ 命令面板（壳层玻璃） ============ */
