@@ -1,12 +1,12 @@
 /**
  * 设置对话框（F14）：居中弹窗 + 卡片分区（非整页）。
- * 三张卡：AI 接入（连接四项 + 测试连接）、AI 行为（开关 + 插链上限）、外观（五主题）。
+ * 四张卡：AI 接入（连接四项 + 测试连接）、AI 行为（开关 + 插链上限）、Agent 接入（MCP token）、外观（五主题）。
  * 快捷开关与右栏智能面板同源（同一 PUT），连接配置热生效无需重启。
  */
 import { useEffect, useState } from 'react'
-import { Plug, Sparkles, Palette } from 'lucide-react'
+import { Plug, Sparkles, Palette, Bot } from 'lucide-react'
 import { api } from '@/api/client'
-import type { TestConnectionResult } from '@/api/types'
+import type { AgentScope, AgentTokenInfo, TestConnectionResult } from '@/api/types'
 import { useStore } from '@/state/store'
 import { useAiStore } from '@/state/ai'
 import type { AiLinkMode } from '@/api/types'
@@ -219,6 +219,109 @@ function BehaviorCard() {
   )
 }
 
+/** Agent 接入卡（F22.2 / v0.3.0）：MCP token 的生成/吊销；明文只在生成时展示一次 */
+function AgentCard() {
+  const [tokens, setTokens] = useState<AgentTokenInfo[] | null>(null)
+  const [name, setName] = useState('')
+  const [scope, setScope] = useState<AgentScope>('read-write')
+  const [creating, setCreating] = useState(false)
+  const [fresh, setFresh] = useState<{ token: string; name: string } | null>(null)
+  const [flash, setFlash] = useState('')
+
+  const refresh = () => {
+    void api
+      .agentsTokens()
+      .then(r => setTokens(r.tokens))
+      .catch(() => setTokens([]))
+  }
+  useEffect(refresh, [])
+
+  const create = async () => {
+    if (!name.trim()) {
+      setFlash('先给 agent 起个名字')
+      return
+    }
+    setCreating(true)
+    setFlash('')
+    try {
+      const r = await api.agentsCreateToken(name.trim(), scope)
+      setFresh({ token: r.token, name: r.name })
+      setName('')
+      refresh()
+    } catch (err) {
+      setFlash(`生成失败：${(err as Error).message}`)
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const revoke = async (id: string, tokenName: string) => {
+    try {
+      await api.agentsRevokeToken(id)
+      setFlash(`已吊销「${tokenName}」，使用它的 agent 立即失权`)
+      refresh()
+    } catch (err) {
+      setFlash(`吊销失败：${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <section className="mg-settings-card rounded-xl border border-[var(--border)] p-4" style={{ animationDelay: '60ms' }}>
+      <CardTitle icon={<Bot className="h-3.5 w-3.5" />}>Agent 接入（MCP）</CardTitle>
+      <p className="mt-1 text-[11.5px] leading-4 text-[var(--muted-foreground)]">
+        把笔记库开放给外部 AI agent（Claude Code / ZCode / Cursor 等）：地址为同源 <code>/mcp</code>（Streamable
+        HTTP），鉴权用 Bearer Token。token 只在生成时显示一次；删除一律进回收站，全程审计。
+      </p>
+      {fresh && (
+        <div className="mt-2 rounded-lg bg-[var(--secondary)] px-3 py-2 text-[11.5px] leading-5">
+          <div className="font-medium">「{fresh.name}」的 Token（只显示这一次，请立即复制）：</div>
+          <code className="mt-1 block break-all text-[var(--mg-link)]">{fresh.token}</code>
+          <div className="mt-1 text-[var(--muted-foreground)]">
+            agent 配置示例：streamableHttp 指向本站 /mcp，Authorization 头带此 token
+          </div>
+        </div>
+      )}
+      <div className="mt-3 flex items-end gap-2">
+        <label className="grid flex-1 gap-1 text-[11.5px] text-[var(--muted-foreground)]">
+          名字（如「ZCode on MacBook」）
+          <Input value={name} onChange={e => setName(e.target.value)} placeholder="agent 标识" spellCheck={false} />
+        </label>
+        <div className="pb-0.5">
+          <Seg
+            value={scope}
+            options={[['read', '只读'], ['read-write', '读写']] as [AgentScope, string][]}
+            onChange={setScope}
+          />
+        </div>
+        <Button size="sm" onClick={() => void create()} disabled={creating}>
+          {creating ? '生成中…' : '生成'}
+        </Button>
+      </div>
+      {tokens && tokens.length > 0 && (
+        <ul className="mt-3 space-y-1.5">
+          {tokens.map(t => (
+            <li key={t.id} className="flex items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2 text-[12px]">
+              <div className="min-w-0">
+                <span className="font-medium">{t.name}</span>
+                <span className="ml-2 text-[var(--muted-foreground)]">
+                  {t.scope === 'read' ? '只读' : '读写'} · …{t.fingerprint}
+                </span>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => void revoke(t.id, t.name)}>
+                吊销
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {tokens && tokens.length === 0 && (
+        <p className="mt-2 text-[11.5px] text-[var(--muted-foreground)]">还没有 token——生成第一个前 /mcp 对外一律 401。</p>
+      )}
+      {flash && <p className="mt-2 text-[11.5px] text-[var(--muted-foreground)]">{flash}</p>}
+    </section>
+  )
+}
+
 /** 外观卡：五主题（与命令面板同源） */
 function AppearanceCard() {
   const theme = useStore(s => s.theme)
@@ -259,6 +362,7 @@ export function SettingsDialog() {
         <div className="mt-2 space-y-3">
           <ConnectionCard />
           <BehaviorCard />
+          <AgentCard />
           <AppearanceCard />
         </div>
         <p className="mt-3 text-center text-[11px] text-[var(--muted-foreground)]">

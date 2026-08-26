@@ -100,3 +100,50 @@ export interface ChatTurn {
   content: string
   sources?: ChatSource[]
 }
+
+/* ============ 链接索引（F23.1：服务端 /api/index 的序列化形态） ============ */
+
+export interface IndexGraphNode {
+  id: string
+  name: string
+  folder: string
+  ghost: boolean
+}
+
+export interface IndexGraphEdge {
+  source: string
+  target: string
+  resolved: boolean
+}
+
+export interface IndexBacklink {
+  from: string
+  context: string
+}
+
+export interface SerializedIndex {
+  nodes: IndexGraphNode[]
+  edges: IndexGraphEdge[]
+  backlinks: Record<string, IndexBacklink[]>
+  tags: Record<string, string[]>
+  ghostTargets: Record<string, string>
+}
+
+/* ============ Agent 接入（F22.2 / v0.3.0） ============ */
+
+export type AgentScope = 'read' | 'read-write'
+
+export interface AgentTokenInfo {
+  id: string
+  name: string
+  scope: AgentScope
+  /** sha256 前 8 位，供辨认；完整 hash 与明文都不可见 */
+  fingerprint: string
+  createdAt: string
+  lastUsedAt?: string
+}
+
+/** 生成结果：token 明文只出现一次 */
+export interface AgentTokenCreated extends AgentTokenInfo {
+  token: string
+}

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { api } from '@/api/client'
 import type { ThemeId, VaultNode } from '@/api/types'
-import { buildIndex, type VaultIndex } from '@/graph/indexer'
+import type { VaultIndex } from '@/graph/indexer'
 import { collectPaths } from '@/editor/wikilink'
 import { bus } from '@/shell/bus'
 
@@ -53,6 +53,9 @@ interface AppState {
 }
 
 const THEME_KEY = 'mg-theme'
+
+/** 索引拉取防抖：连续保存/SSE 事件合并为一次 /api/index 请求 */
+let indexFetchTimer: ReturnType<typeof setTimeout> | null = null
 
 function loadTheme(): ThemeId {
   const t = localStorage.getItem(THEME_KEY)
@@ -107,8 +110,25 @@ export const useStore = create<AppState>((set, get) => ({
     get().rebuildIndex()
   },
 
+  /** 从服务端拉取链接索引（F23.1 同源取数：与 MCP/反链/图谱共用服务端构建结果） */
   rebuildIndex: () => {
-    set({ index: buildIndex(new Map(Object.entries(get().contents))) })
+    if (indexFetchTimer) clearTimeout(indexFetchTimer)
+    indexFetchTimer = setTimeout(() => {
+      indexFetchTimer = null
+      void api
+        .index()
+        .then(s => {
+          const index: VaultIndex = {
+            nodes: s.nodes,
+            edges: s.edges,
+            backlinks: new Map(Object.entries(s.backlinks)),
+            tags: new Map(Object.entries(s.tags)),
+            ghostTargets: new Map(Object.entries(s.ghostTargets)),
+          }
+          set({ index })
+        })
+        .catch(() => undefined)
+    }, 250)
   },
 
   refreshTree: async () => {

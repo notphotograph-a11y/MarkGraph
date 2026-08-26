@@ -1,4 +1,7 @@
 import type {
+  AgentScope,
+  AgentTokenCreated,
+  AgentTokenInfo,
   AiEvent,
   AiNoteView,
   AiSettings,
@@ -6,6 +9,7 @@ import type {
   AiStatus,
   ChatSource,
   NoteContent,
+  SerializedIndex,
   TestConnectionResult,
   VaultEvent,
   VaultNode,
@@ -48,6 +52,9 @@ export const api = {
 
   notes: () =>
     fetch('/api/notes').then(r => json<{ notes: { path: string; content: string }[] }>(r)),
+
+  /** 链接索引（F23.1）：服务端构建，与 MCP 同源 */
+  index: () => fetch('/api/index').then(r => json<SerializedIndex>(r)),
 
   save: (path: string, content: string) =>
     fetch('/api/note', {
@@ -146,6 +153,20 @@ export const api = {
     }).then(r => json<{ results: { path: string; score: number }[] }>(r)),
 
   aiHasIndex: () => fetch('/api/ai/has-index').then(r => json<{ indexed: boolean }>(r)),
+
+  /* ============ Agent 接入（F22.2 / v0.3.0） ============ */
+
+  agentsTokens: () => fetch('/api/agents/tokens').then(r => json<{ tokens: AgentTokenInfo[] }>(r)),
+
+  agentsCreateToken: (name: string, scope: AgentScope) =>
+    fetch('/api/agents/tokens', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, scope }),
+    }).then(r => json<AgentTokenCreated>(r)),
+
+  agentsRevokeToken: (id: string) =>
+    fetch(`/api/agents/tokens/${encodeURIComponent(id)}`, { method: 'DELETE' }).then(r => json<{ ok: true }>(r)),
 
   /** 测试连接（F14.2）：传入值 → 已存值 → .env 逐级回退，可先测后存 */
   aiTestConnection: (conn: AiSettingsPatch['ai']) =>

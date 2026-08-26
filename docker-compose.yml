@@ -1,7 +1,7 @@
 services:
   markgraph:
     build: .
-    image: markgraph:0.2.0
+    image: markgraph:0.3.0
     ports:
       - "7710:7710"
     environment:

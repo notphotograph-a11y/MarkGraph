@@ -98,6 +98,8 @@ export async function createNode(rel: string, isDir: boolean): Promise<{ path: s
     })
   } else {
     if (!isMarkdownRel(rel)) throw Object.assign(new Error('笔记必须以 .md 结尾'), { statusCode: 400 })
+    // 笔记可在尚不存在的文件夹下创建（agent 常见：直接写 项目X/想法.md）；父目录逐级补齐
+    await fs.mkdir(path.dirname(full), { recursive: true })
     const handle = await fs.open(full, 'wx').catch(err => {
       if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
         throw Object.assign(new Error('已存在同名笔记'), { statusCode: 409 })

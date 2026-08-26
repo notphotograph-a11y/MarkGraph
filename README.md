@@ -12,6 +12,7 @@ MarkGraph 是自托管的网页版 Markdown 双链笔记（客户端-服务器�
 - **搜索**：命令面板 = 文件名 fuzzy + 全库全文搜索（不依赖 AI）+ 语义搜索（配置 AI 后）
 - **AI 自动富集**（可选）：保存笔记即自动生成标签与摘要（写入 frontmatter）、自动插入双链（每次写入可撤销）、相关笔记推荐
 - **库内问答**（可选）：对整个 vault 提问，流式回答、只依据库内笔记，引用与来源可跳转到具体段落
+- **外部 Agent 接入（MCP）**：把笔记库的全部能力（增删改查 / 整理 / 索引 / 问答）以 30 个 MCP 工具开放给 Claude Code、ZCode、Cursor 等 AI agent——人用浏览器，agent 用 MCP；全程审计、删除进回收站、读写双作用域 token
 - **设置中心**：⌘/Ctrl+, 卡片式设置，AI 网关在应用内配置并热生效——支持 newAPI 等 OpenAI 兼容网关，也支持 Ollama 本地模型（免密钥，数据不出内网）
 - **五套主题**：玻璃 / 纸感 / 经典深色 / 纯黑 / 卡片——每套主题连图谱的画法都不同（柔光圆点 / 墨线勾勒 / 实心圆 / 极简细线 / 圆角方块）
 
@@ -77,9 +78,33 @@ npm start            # 默认 http://127.0.0.1:7710
 
 - **AI 接入**：网关地址、API Key（只存服务端，界面只显示掩码）、两个模型名，支持「测试连接」先测后存，保存即热生效，无需重启
 - **AI 行为**：自动标签 / 自动摘要 / 自动连接（全自动·仅建议·关）、单次自动插链上限
+- **Agent 接入（MCP）**：生成 / 吊销 API Token（只读 / 读写两档），明文只显示一次
 - **外观**：五套主题一键切换
 
 `HOST` / `PORT` / `VAULT_DIR` 属部署配置，在 `.env` 中设置。
+
+## 外部 Agent 接入（MCP）
+
+NAS 场景的自然延伸：**人用浏览器，agent 用 MCP**。在「设置 → Agent 接入」生成一个 Token，任何支持 MCP 的编码 agent（Claude Code / ZCode / Cursor 等）即可安全操作你的笔记库——查询、写作、整理、建索引、问答。
+
+- 端点：与 Web 同源 `/mcp`（Streamable HTTP，不新增端口）；鉴权 `Authorization: Bearer mg_...`
+- 30 个原子工具：`list_tree` / `read_note` / `write_note`（乐观并发）/ `create_note` / `rename_note`（自动改写全库 wikilink）/ `delete_note`（一律进回收站，可 `restore_trash`）/ `search_fulltext` / `get_backlinks` / `list_broken_links` / `find_orphans` / `health_check` / `replace_text`（先 dry_run 预览再落盘）/ `enrich_all` / `semantic_search` / `ask_vault` / `upload_attachment` / `read_audit_log` 等
+- 整理策略由 agent 编排原子工具完成，产品不内置固定流程——`health_check` 一次返回断链 / 孤立 / 重名 / 空笔记 / 未富集清单，是整理工作的统一入口
+- 安全：token 只存 SHA-256（常量时间比较）、吊销即时生效；写操作限速（默认 60 次/分钟，`.markgraph/agents.json` 可调）；全部调用进审计日志；`.markgraph/` 内部目录不可直接触碰
+
+agent 侧配置示例（MCP Streamable HTTP）：
+
+```json
+{
+  "mcpServers": {
+    "markgraph": {
+      "type": "streamableHttp",
+      "url": "http://<NAS-IP>:7710/mcp",
+      "headers": { "Authorization": "Bearer mg_你的token" }
+    }
+  }
+}
+```
 
 ## Docker / NAS
 

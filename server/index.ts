@@ -22,6 +22,8 @@ import { registerAiRoutes } from './ai/routes.js'
 import { onAiEvent, scheduleEnrich } from './ai/enrich.js'
 import { dropNoteState } from './ai/store.js'
 import { assertBindAllowed, registerAuth } from './auth.js'
+import { getIndex, initIndexService } from './shared/index-service.js'
+import { registerAgentAdmin, registerMcp } from './mcp/routes.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HOST = process.env.HOST || '127.0.0.1'
@@ -39,6 +41,9 @@ app.setErrorHandler((err: Error & { statusCode?: number }, _req, reply) => {
 })
 
 app.get('/api/tree', async () => ({ tree: await readTree() }))
+
+// 链接索引（F23.1）：服务端构建，Web 前端与 MCP 同源取数
+app.get('/api/index', async () => getIndex())
 
 app.get('/api/note', async req => {
   const { path: p } = req.query as { path?: string }
@@ -140,6 +145,10 @@ app.get('/api/events', async (req, reply) => {
 // Phase 2：AI 富集端点（薄路由，逻辑在 server/ai/）
 registerAiRoutes(app)
 
+// v0.3.0：外部 Agent 接入（MCP，F22）+ 浏览器侧 token 管理
+registerMcp(app)
+registerAgentAdmin(app)
+
 // 生产模式：托管前端静态文件（dist 存在时）
 // dev（tsx，__dirname=server）：../dist；prod（server/dist）：../../dist
 const distCandidates = [path.resolve(__dirname, '../dist'), path.resolve(__dirname, '../../dist')]
@@ -163,5 +172,6 @@ if (distDir) {
 
 await ensureVault()
 watchVault()
+initIndexService()
 await app.listen({ host: HOST, port: PORT })
 console.log(`[MarkGraph] http://${HOST}:${PORT}  vault: ${VAULT_DIR}`)
