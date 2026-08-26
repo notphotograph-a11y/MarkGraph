@@ -22,15 +22,35 @@ export interface VaultNode {
   children?: VaultNode[]
 }
 
+/** 附件目录：文件树与文件夹页不展示（F19） */
+export const ATTACHMENTS_DIR = 'attachments'
+
+const IMAGE_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp'])
+
+export function isMarkdownRel(rel: string): boolean {
+  return rel.toLowerCase().endsWith('.md')
+}
+
+export function isImageRel(rel: string): boolean {
+  return IMAGE_EXT.has(path.posix.extname(rel).toLowerCase())
+}
+
+export function rejectHiddenSegments(rel: string): void {
+  const parts = rel.split(/[/\\]/).filter(Boolean)
+  if (parts.some(p => p.startsWith('.') || p === '..')) {
+    throw Object.assign(new Error('非法路径'), { statusCode: 400 })
+  }
+}
+
 async function walk(rel: string, name: string): Promise<VaultNode | null> {
-  if (name.startsWith('.')) return null
+  if (name.startsWith('.') || name === ATTACHMENTS_DIR) return null
   const full = safeJoin(rel)
   const st = await fs.stat(full)
   if (st.isDirectory()) {
     const entries = await fs.readdir(full, { withFileTypes: true })
     const children: VaultNode[] = []
     for (const e of entries.sort((a, b) => a.name.localeCompare(b.name, 'zh'))) {
-      if (e.name.startsWith('.')) continue
+      if (e.name.startsWith('.') || e.name === ATTACHMENTS_DIR) continue
       const child = await walk(path.posix.join(rel, e.name), e.name)
       if (child) children.push(child)
     }
@@ -38,12 +58,8 @@ async function walk(rel: string, name: string): Promise<VaultNode | null> {
     children.sort((a, b) => (a.type === b.type ? 0 : a.type === 'dir' ? -1 : 1))
     return { type: 'dir', name, path: rel, children }
   }
-  if (!e_isMarkdown(name)) return null
+  if (!isMarkdownRel(name)) return null
   return { type: 'file', name, path: rel }
-}
-
-function e_isMarkdown(name: string): boolean {
-  return name.toLowerCase().endsWith('.md')
 }
 
 export async function readTree(): Promise<VaultNode | null> {
@@ -55,7 +71,7 @@ export async function readTree(): Promise<VaultNode | null> {
 }
 
 export async function readNote(rel: string): Promise<{ content: string; mtime: number }> {
-  if (!e_isMarkdown(rel)) throw Object.assign(new Error('仅支持 .md 文件'), { statusCode: 400 })
+  if (!isMarkdownRel(rel)) throw Object.assign(new Error('仅支持 .md 文件'), { statusCode: 400 })
   const full = safeJoin(rel)
   const content = await fs.readFile(full, 'utf8')
   const { mtimeMs } = await fs.stat(full)
@@ -63,7 +79,7 @@ export async function readNote(rel: string): Promise<{ content: string; mtime: n
 }
 
 export async function writeNote(rel: string, content: string): Promise<{ mtime: number }> {
-  if (!e_isMarkdown(rel)) throw Object.assign(new Error('仅支持 .md 文件'), { statusCode: 400 })
+  if (!isMarkdownRel(rel)) throw Object.assign(new Error('仅支持 .md 文件'), { statusCode: 400 })
   const full = safeJoin(rel)
   await fs.mkdir(path.dirname(full), { recursive: true })
   await fs.writeFile(full, content, 'utf8')
@@ -81,7 +97,7 @@ export async function createNode(rel: string, isDir: boolean): Promise<{ path: s
       throw err
     })
   } else {
-    if (!e_isMarkdown(rel)) throw Object.assign(new Error('笔记必须以 .md 结尾'), { statusCode: 400 })
+    if (!isMarkdownRel(rel)) throw Object.assign(new Error('笔记必须以 .md 结尾'), { statusCode: 400 })
     const handle = await fs.open(full, 'wx').catch(err => {
       if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
         throw Object.assign(new Error('已存在同名笔记'), { statusCode: 409 })
@@ -96,8 +112,19 @@ export async function createNode(rel: string, isDir: boolean): Promise<{ path: s
 
 export async function renameNode(from: string, to: string): Promise<{ path: string }> {
   if (from === to) return { path: to }
+  rejectHiddenSegments(from)
+  rejectHiddenSegments(to)
   const fullFrom = safeJoin(from)
   const fullTo = safeJoin(to)
+  const st = await fs.stat(fullFrom)
+  if (st.isFile()) {
+    if (!isMarkdownRel(from) && !isImageRel(from)) {
+      throw Object.assign(new Error('只能重命名笔记或图片'), { statusCode: 400 })
+    }
+    if (!isMarkdownRel(to) && !isImageRel(to)) {
+      throw Object.assign(new Error('目标必须是笔记或图片'), { statusCode: 400 })
+    }
+  }
   await fs.access(fullTo).then(
     () => {
       throw Object.assign(new Error('目标已存在'), { statusCode: 409 })
@@ -112,7 +139,13 @@ export async function renameNode(from: string, to: string): Promise<{ path: stri
 }
 
 export async function deleteNode(rel: string): Promise<{ ok: true }> {
+  if (!rel) throw Object.assign(new Error('非法路径'), { statusCode: 400 })
+  rejectHiddenSegments(rel)
   const full = safeJoin(rel)
+  const st = await fs.stat(full)
+  if (st.isFile() && !isMarkdownRel(rel) && !isImageRel(rel)) {
+    throw Object.assign(new Error('只能删除笔记或图片'), { statusCode: 400 })
+  }
   await fs.rm(full, { recursive: true, force: true })
   return { ok: true }
 }

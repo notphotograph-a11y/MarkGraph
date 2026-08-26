@@ -4,21 +4,16 @@
  * 答案渲染与阅读模式同管线（转义 → wikilink span → marked），引用可点击跳转。
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { marked } from 'marked'
 import { FileText, Send } from 'lucide-react'
 import { api } from '@/api/client'
 import type { ChatSource, ChatTurn } from '@/api/types'
 import { useStore } from '@/state/store'
 import { useAiStore } from '@/state/ai'
-import { buildNameIndex, collectPaths, linkText, makeResolver, parseLink } from '@/editor/wikilink'
+import { buildNameIndex, collectPaths, makeResolver } from '@/editor/wikilink'
+import { renderMarkdown } from '@/editor/markdown'
 import { parseOutline, type OutlineTarget } from '@/graph/indexer'
 import { bus } from '@/shell/bus'
 import { Button } from '@/components/ui/button'
-
-function escapeHtml(s: string): string {
-  // 与 ReadView 一致：不转义 `>`（引用块需要），XSS 关键是 `<` / `&`
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
-}
 
 /** 答案 markdown：wikilink → 可点 span，点击跳转（断链不动作） */
 function AnswerBody({ content }: { content: string }) {
@@ -28,15 +23,7 @@ function AnswerBody({ content }: { content: string }) {
   const paths = useMemo(() => (tree ? collectPaths(tree.children ?? []) : []), [tree])
   const resolve = useMemo(() => makeResolver(buildNameIndex(paths), ''), [paths])
 
-  const html = useMemo(() => {
-    let src = escapeHtml(content)
-    src = src.replace(/\[\[([^\[\]]+?)\]\]/g, (_, inner: string) => {
-      const parsed = parseLink(inner)
-      const targetPath = resolve(parsed.target)
-      return `<span class="rd-link${targetPath ? '' : ' rd-broken'}" data-wk="${escapeHtml(parsed.target)}" data-wkp="${escapeHtml(targetPath ?? '')}">${escapeHtml(linkText(parsed))}</span>`
-    })
-    return marked.parse(src, { async: false })
-  }, [content, resolve])
+  const html = useMemo(() => renderMarkdown(content, resolve), [content, resolve])
 
   return (
     <div

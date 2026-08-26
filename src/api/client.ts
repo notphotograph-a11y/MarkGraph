@@ -11,7 +11,24 @@ import type {
   VaultNode,
 } from './types'
 
+const authListeners = new Set<() => void>()
+
+export function onUnauthorized(cb: () => void): () => void {
+  authListeners.add(cb)
+  return () => {
+    authListeners.delete(cb)
+  }
+}
+
+function notifyUnauthorized() {
+  authListeners.forEach(cb => cb())
+}
+
 async function json<T>(res: Response): Promise<T> {
+  if (res.status === 401) {
+    closeEvents()
+    notifyUnauthorized()
+  }
   if (!res.ok) {
     let msg = `${res.status}`
     try {
@@ -62,6 +79,26 @@ export const api = {
 
   importSample: () =>
     fetch('/api/import-sample', { method: 'POST' }).then(r => json<{ ok: true }>(r)),
+
+  authStatus: () =>
+    fetch('/api/auth/status').then(r => json<{ required: boolean; loggedIn: boolean }>(r)),
+
+  login: (password: string) =>
+    fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    }).then(r => json<{ ok: true }>(r)),
+
+  logout: () => fetch('/api/auth/logout', { method: 'POST' }).then(r => json<{ ok: true }>(r)),
+
+  upload: (file: File) => {
+    const body = new FormData()
+    body.append('file', file, file.name)
+    return fetch('/api/file', { method: 'POST', body }).then(r => json<{ path: string }>(r))
+  },
+
+  fileUrl: (rel: string) => `/api/file?path=${encodeURIComponent(rel)}`,
 
   /* ============ AI 富集（Phase 2） ============ */
 
@@ -167,6 +204,11 @@ export const api = {
 let es: EventSource | null = null
 const handlers = new Set<(e: VaultEvent) => void>()
 const aiHandlers = new Set<(e: AiEvent) => void>()
+
+export function closeEvents(): void {
+  es?.close()
+  es = null
+}
 
 export function subscribeVaultEvents(cb: (e: VaultEvent) => void): () => void {
   handlers.add(cb)

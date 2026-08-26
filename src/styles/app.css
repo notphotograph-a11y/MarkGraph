@@ -364,6 +364,15 @@ body {
 .cm-mg-h6 { font-weight: 600; opacity: 0.9; }
 .cm-mg-strong { font-weight: 700; }
 .cm-mg-em { font-style: italic; }
+.cm-mg-imgtag { color: var(--muted-foreground); }
+.cm-mg-img {
+  display: block;
+  max-width: min(100%, 520px);
+  max-height: 280px;
+  margin: 0.4em 0;
+  border-radius: var(--radius);
+  object-fit: contain;
+}
 
 /* ============ 阅读模式 ============ */
 .mg-read h1 { font-size: 1.7em; font-weight: 700; margin: 0.8em 0 0.5em; }
@@ -417,6 +426,13 @@ body {
 .mg-read th {
   background: var(--secondary);
   font-weight: 600;
+}
+.mg-read img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.8em 0;
+  border-radius: var(--radius);
 }
 
 .rd-link {
@@ -489,6 +505,44 @@ body {
 }
 [data-theme="obsidian"] .mg-palette-mask {
   background: rgba(0, 0, 0, 0.35);
+}
+
+/* ============ 窄屏（F20） ============ */
+.mg-drawer-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(0, 0, 0, 0.28);
+  border: 0;
+}
+.mg-drawer {
+  position: fixed;
+  z-index: 31;
+  top: 0;
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
+  width: min(82vw, 320px);
+  overflow: hidden;
+}
+.mg-drawer-left { left: 0; }
+.mg-drawer-right { right: 0; }
+.mg-dock {
+  border-top: 1px solid var(--mg-panel-border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (max-width: 899px) {
+  .mg-traffic,
+  .mg-tab-actions { display: none; }
+  .mg-tab-close { opacity: 1; }
+  .mg-palette-mask {
+    padding-top: 0;
+    align-items: stretch;
+  }
+  .mg-palette {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+  }
+  .mg-read { padding-left: 1.25rem; padding-right: 1.25rem; }
 }
 
 /* ============ 动效层：每套主题一套运动性格 ============ */

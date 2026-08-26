@@ -73,6 +73,15 @@ export function listCommands(): Command[] {
       keywords: 'close tab 关闭',
       run: () => s.closeActiveTab(),
     },
+    {
+      id: 'logout',
+      title: '退出登录',
+      keywords: 'logout 退出 登出 口令',
+      run: async () => {
+        await api.logout()
+        location.reload()
+      },
+    },
   ]
   if (empty) {
     cmds.push({

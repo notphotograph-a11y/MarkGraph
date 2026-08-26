@@ -1,0 +1,20 @@
+services:
+  markgraph:
+    build: .
+    image: markgraph:0.2.0
+    ports:
+      - "7710:7710"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "7710"
+      VAULT_DIR: /data/vault
+      AUTH_PASSWORD: ${AUTH_PASSWORD:?set AUTH_PASSWORD in .env or the shell}
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET (random 32+ chars)}
+      # NAS 绑定挂载经常没有 inotify，外部改文件 SSE 会哑：
+      # CHOKIDAR_USEPOLLING: "1"
+    volumes:
+      - markgraph-vault:/data/vault
+    restart: unless-stopped
+
+volumes:
+  markgraph-vault:

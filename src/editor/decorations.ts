@@ -3,13 +3,41 @@ import {
   type DecorationSet,
   EditorView,
   ViewPlugin,
+  WidgetType,
   type ViewUpdate,
 } from '@codemirror/view'
 import { RangeSet, type Range } from '@codemirror/state'
 import { parseLink, type ResolveFn } from './wikilink'
+import { resolveMediaSrc } from './markdown'
 
 const INLINE_RE =
-  /(\[\[[^\[\]]+?\]\])|((^|\s)#[\p{L}\p{N}_-]+)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)/gu
+  /(!\[[^\]]*\]\([^)]+\))|(\[\[[^\[\]]+?\]\])|((^|\s)#[\p{L}\p{N}_-]+)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)/gu
+
+class ImageWidget extends WidgetType {
+  constructor(
+    readonly src: string,
+    readonly alt: string,
+  ) {
+    super()
+  }
+  eq(other: ImageWidget) {
+    return this.src === other.src && this.alt === other.alt
+  }
+  toDOM() {
+    const img = document.createElement('img')
+    img.src = this.src
+    img.alt = this.alt
+    img.className = 'cm-mg-img'
+    img.draggable = false
+    return img
+  }
+}
+
+function parseMdImage(raw: string): { alt: string; src: string } | null {
+  const m = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(raw)
+  if (!m) return null
+  return { alt: m[1], src: m[2].trim() }
+}
 
 /**
  * wikilink/标签着色 + 基础 live preview：
@@ -63,12 +91,20 @@ export function markgraphDecorations(resolve: ResolveFn) {
             while ((m = INLINE_RE.exec(text))) {
               const s = line.from + m.index
               if (m[1]) {
+                const parsed = parseMdImage(m[1])
+                const src = parsed ? resolveMediaSrc(parsed.src) : null
+                if (!active && src && parsed) {
+                  push(s, s + m[1].length, Decoration.replace({ widget: new ImageWidget(src, parsed.alt) }))
+                } else {
+                  push(s, s + m[1].length, Decoration.mark({ class: 'cm-mg-imgtag' }))
+                }
+              } else if (m[2]) {
                 // wikilink
-                const parsed = parseLink(m[1].slice(2, -2))
+                const parsed = parseLink(m[2].slice(2, -2))
                 const resolved = resolve(parsed.target)
                 push(
                   s,
-                  s + m[1].length,
+                  s + m[2].length,
                   Decoration.mark({
                     class: resolved ? 'cm-mg-link' : 'cm-mg-broken',
                     attributes: {
@@ -78,24 +114,24 @@ export function markgraphDecorations(resolve: ResolveFn) {
                     },
                   }),
                 )
-              } else if (m[2]) {
-                // 标签（m[2] 含前导空白）
-                const lead = m[2].length - m[2].replace(/^\s+/, '').length
-                push(s + lead, s + m[2].length, Decoration.mark({ class: 'cm-mg-tag' }))
-              } else if (m[4]) {
+              } else if (m[3]) {
+                // 标签（含前导空白）
+                const lead = m[3].length - m[3].replace(/^\s+/, '').length
+                push(s + lead, s + m[3].length, Decoration.mark({ class: 'cm-mg-tag' }))
+              } else if (m[5]) {
                 // **加粗**
                 if (!active) {
                   push(s, s + 2, Decoration.replace({}))
-                  push(s + m[4].length - 2, s + m[4].length, Decoration.replace({}))
+                  push(s + m[5].length - 2, s + m[5].length, Decoration.replace({}))
                 }
-                push(s + 2, s + m[4].length - 2, Decoration.mark({ class: 'cm-mg-strong' }))
-              } else if (m[5]) {
+                push(s + 2, s + m[5].length - 2, Decoration.mark({ class: 'cm-mg-strong' }))
+              } else if (m[6]) {
                 // *斜体*
                 if (!active) {
                   push(s, s + 1, Decoration.replace({}))
-                  push(s + m[5].length - 1, s + m[5].length, Decoration.replace({}))
+                  push(s + m[6].length - 1, s + m[6].length, Decoration.replace({}))
                 }
-                push(s + 1, s + m[5].length - 1, Decoration.mark({ class: 'cm-mg-em' }))
+                push(s + 1, s + m[6].length - 1, Decoration.mark({ class: 'cm-mg-em' }))
               }
             }
             pos = line.to + 1

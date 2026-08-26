@@ -288,6 +288,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   onExternalChange: (path, kind) => {
     void get().refreshTree()
+    if (!path.toLowerCase().endsWith('.md')) return
     const { notes } = get()
     const cur = notes[path]
     if (!cur || kind === 'unlink') return

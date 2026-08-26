@@ -192,6 +192,8 @@ MarkGraph 的里程碑：
 - 装备清单整理在 [[工具箱]] 的后半部分
 - 灵感来源：[[2026-08-13]] 的日记
 
+![路线速写](attachments/travel-sketch.png)
+
 还想去的远期目标：[[未来想去的地方]]。
 
 #旅行
@@ -298,7 +300,13 @@ const diary = [
 `],
 ]
 
-fs.rmSync(root, { recursive: true, force: true })
+const keep = new Set(['attachments/travel-sketch.png'])
+for (const ent of fs.readdirSync(root, { recursive: true, withFileTypes: true })) {
+  if (!ent.isFile()) continue
+  const rel = path.relative(root, path.join(ent.parentPath ?? ent.path, ent.name)).split(path.sep).join('/')
+  if (keep.has(rel)) continue
+  if (rel.endsWith('.md')) fs.unlinkSync(path.join(root, rel))
+}
 for (const [rel, content] of [...notes, ...diary]) {
   const full = path.join(root, rel)
   fs.mkdirSync(path.dirname(full), { recursive: true })

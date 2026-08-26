@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, subscribeAiEvents, subscribeVaultEvents } from '@/api/client'
+import { api, closeEvents, onUnauthorized, subscribeAiEvents, subscribeVaultEvents } from '@/api/client'
 import { useStore } from '@/state/store'
 import { useAiStore } from '@/state/ai'
 import { FileTree } from '@/panels/FileTree'
@@ -10,6 +10,9 @@ import { ChatView } from '@/chat/ChatView'
 import { FolderView } from '@/folder/FolderView'
 import { CommandPalette } from '@/shell/CommandPalette'
 import { SettingsDialog } from '@/shell/Settings'
+import { MobileChrome } from '@/shell/MobileChrome'
+import { useNarrow } from '@/shell/useNarrow'
+import { LoginGate } from '@/shell/Login'
 import { Button } from '@/components/ui/button'
 import { getPanels } from '@/panels/registry'
 import { registerBuiltinPanels } from '@/panels/Backlinks'
@@ -105,6 +108,38 @@ function Statusbar() {
   )
 }
 
+function Workspace({
+  vaultEmpty,
+  active,
+}: {
+  vaultEmpty: boolean
+  active: ReturnType<typeof useStore.getState>['tabs'][number] | null
+}) {
+  return (
+    <>
+      <Tabs />
+      <div className="mg-content flex min-h-0 flex-1 flex-col">
+        {vaultEmpty ? (
+          <Welcome />
+        ) : active?.kind === 'note' ? (
+          <NoteView path={active.path} />
+        ) : active?.kind === 'graph' ? (
+          <GraphView />
+        ) : active?.kind === 'chat' ? (
+          <ChatView />
+        ) : active?.kind === 'folder' ? (
+          <FolderView path={active.path} />
+        ) : (
+          <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
+            在左侧选择一篇笔记开始
+          </div>
+        )}
+      </div>
+      <Statusbar />
+    </>
+  )
+}
+
 export default function App() {
   const theme = useStore(s => s.theme)
   const init = useStore(s => s.init)
@@ -112,6 +147,8 @@ export default function App() {
   const tabs = useStore(s => s.tabs)
   const activeIndex = useStore(s => s.activeIndex)
   const active = activeIndex >= 0 ? tabs[activeIndex] : null
+  const narrow = useNarrow()
+  const [gate, setGate] = useState<'checking' | 'login' | 'ok'>('checking')
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -134,7 +171,29 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  useEffect(() => onUnauthorized(() => {
+    closeEvents()
+    setGate('login')
+  }), [])
+
   useEffect(() => {
+    let cancelled = false
+    void api
+      .authStatus()
+      .then(s => {
+        if (cancelled) return
+        setGate(s.required && !s.loggedIn ? 'login' : 'ok')
+      })
+      .catch(() => {
+        if (!cancelled) setGate('ok')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (gate !== 'ok') return
     let cancelled = false
     void init().then(() => {
       if (cancelled) return
@@ -158,7 +217,6 @@ export default function App() {
     const off = subscribeVaultEvents(e => {
       useStore.getState().onExternalChange(e.path, e.kind)
     })
-    // AI 富集事件（Phase 2）：面板刷新、进度与设置同步
     void useAiStore.getState().initAi()
     const offAi = subscribeAiEvents(e => {
       useAiStore.getState().onEvent(e)
@@ -167,44 +225,37 @@ export default function App() {
       cancelled = true
       off()
       offAi()
+      closeEvents()
     }
-  }, [init])
+  }, [init, gate])
+
+  if (gate === 'checking') {
+    return <div className="app-root flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">加载中…</div>
+  }
+  if (gate === 'login') {
+    return <LoginGate onOk={() => setGate('ok')} />
+  }
 
   const vaultEmpty = !tree || !tree.children || tree.children.length === 0
+  const workspace = <Workspace vaultEmpty={vaultEmpty} active={active} />
 
   return (
-    <div className="app-root flex h-full gap-2.5 p-2.5">
-      <aside className="mg-glass flex w-64 flex-none flex-col overflow-hidden">
-        <FileTree />
-      </aside>
-
-      <main className="mg-glass flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Tabs />
-        <div className="mg-content flex min-h-0 flex-1 flex-col">
-          {vaultEmpty ? (
-            <Welcome />
-          ) : active?.kind === 'note' ? (
-            <NoteView path={active.path} />
-          ) : active?.kind === 'graph' ? (
-            <GraphView />
-          ) : active?.kind === 'chat' ? (
-            <ChatView />
-          ) : active?.kind === 'folder' ? (
-            <FolderView path={active.path} />
-          ) : (
-            <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
-              在左侧选择一篇笔记开始
-            </div>
-          )}
+    <>
+      {narrow ? (
+        <MobileChrome>{workspace}</MobileChrome>
+      ) : (
+        <div className="app-root flex h-full gap-2.5 p-2.5">
+          <aside className="mg-glass flex w-64 flex-none flex-col overflow-hidden">
+            <FileTree />
+          </aside>
+          <main className="mg-glass flex min-w-0 flex-1 flex-col overflow-hidden">{workspace}</main>
+          <aside className="mg-glass flex w-72 flex-none flex-col overflow-hidden">
+            <RightPanel />
+          </aside>
         </div>
-        <Statusbar />
-      </main>
-
-      <aside className="mg-glass flex w-72 flex-none flex-col overflow-hidden">
-        <RightPanel />
-      </aside>
+      )}
       <CommandPalette />
       <SettingsDialog />
-    </div>
+    </>
   )
 }

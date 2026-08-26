@@ -2,15 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
-import { marked } from 'marked'
 import { api } from '@/api/client'
 import { useStore } from '@/state/store'
 import { bus } from '@/shell/bus'
 import type { OutlineTarget } from '@/graph/indexer'
-import { buildNameIndex, collectPaths, linkText, makeResolver, parseLink } from './wikilink'
+import { buildNameIndex, collectPaths, makeResolver } from './wikilink'
 import { splitFrontmatter } from '@/lib/frontmatter'
 import { markgraphDecorations } from './decorations'
 import { wikilinkCompletions } from './completions'
+import { renderMarkdown } from './markdown'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -96,6 +96,34 @@ function BrokenDialog({
   )
 }
 
+const IMAGE_FILE = /^image\/(png|jpeg|gif|webp)$/i
+
+function insertUploaded(view: EditorView, files: File[]) {
+  const images = files.filter(f => IMAGE_FILE.test(f.type) || /\.(png|jpe?g|gif|webp)$/i.test(f.name))
+  if (images.length === 0) return false
+  void (async () => {
+    const chunks: string[] = []
+    for (const f of images) {
+      try {
+        const { path: rel } = await api.upload(f)
+        const alt = f.name.replace(/\.[^.]+$/, '')
+        chunks.push(`![${alt}](${rel})`)
+      } catch (err) {
+        chunks.push(`<!-- 图片上传失败：${(err as Error).message} -->`)
+      }
+    }
+    if (chunks.length === 0) return
+    const text = chunks.join('\n')
+    const { from, to } = view.state.selection.main
+    const pad = from === to && from > 0 && view.state.doc.sliceString(from - 1, from) !== '\n' ? '\n' : ''
+    view.dispatch({
+      changes: { from, to, insert: pad + text },
+      selection: { anchor: from + pad.length + text.length },
+    })
+  })()
+  return true
+}
+
 const cmTheme = EditorView.theme({
   '&': { height: '100%', fontSize: '15.5px' },
   '.cm-scroller': { fontFamily: 'inherit', lineHeight: '1.75' },
@@ -150,9 +178,32 @@ export function Editor({ path }: { path: string }) {
           if (el instanceof HTMLElement) navigate(el)
           return false
         },
+        paste(ev, view) {
+          const files = [...(ev.clipboardData?.files ?? [])]
+          if (files.length && insertUploaded(view, files)) {
+            ev.preventDefault()
+            return true
+          }
+          return false
+        },
+        drop(ev, view) {
+          const files = [...(ev.dataTransfer?.files ?? [])]
+          if (files.length && insertUploaded(view, files)) {
+            ev.preventDefault()
+            return true
+          }
+          return false
+        },
+        dragover(ev) {
+          if (ev.dataTransfer?.types.includes('Files')) {
+            ev.preventDefault()
+            return true
+          }
+          return false
+        },
       }),
     ],
-    [resolve, noteNames, navigate],
+    [resolve, noteNames, navigate, path],
   )
 
   const flush = useCallback(async () => {
@@ -239,11 +290,6 @@ export function Editor({ path }: { path: string }) {
   )
 }
 
-function escapeHtml(s: string): string {
-  // 不转义 `>`，否则 marked 无法识别引用块（XSS 关键是 `<` / `&`）
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;')
-}
-
 /** 阅读模式：marked 渲染 + wikilink/标签转可点 span */
 export function ReadView({ path }: { path: string }) {
   const note = useStore(s => s.notes[path])
@@ -263,15 +309,8 @@ export function ReadView({ path }: { path: string }) {
   const html = useMemo(() => {
     if (!note) return ''
     // 阅读模式隐藏 frontmatter 块（F10.3），编辑模式原样可见
-    let src = escapeHtml(splitFrontmatter(note.content).body)
-    src = src.replace(/\[\[([^\[\]]+?)\]\]/g, (_, inner: string) => {
-      const parsed = parseLink(inner)
-      const targetPath = resolve(parsed.target)
-      return `<span class="rd-link${targetPath ? '' : ' rd-broken'}" data-wk="${escapeHtml(parsed.target)}" data-wkp="${escapeHtml(targetPath ?? '')}">${escapeHtml(linkText(parsed))}</span>`
-    })
-    src = src.replace(/(^|\s)(#[\p{L}\p{N}_-]+)/gu, '$1<span class="rd-tag">$2</span>')
-    return marked.parse(src, { async: false })
-  }, [note, resolve])
+    return renderMarkdown(splitFrontmatter(note.content).body, resolve)
+  }, [note, resolve, path])
 
   // 大纲定位（阅读模式）：按序号/标题匹配滚动到对应 heading
   useEffect(() => {

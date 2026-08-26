@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import Fastify from 'fastify'
 import fastifyStatic from '@fastify/static'
+import multipart from '@fastify/multipart'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,20 +16,22 @@ import {
   writeNote,
   VAULT_DIR,
 } from './fs-vault.js'
+import { MAX_IMAGE_BYTES, readAttachment, writeAttachment } from './files.js'
 import { onVaultEvent, watchVault } from './watch.js'
 import { registerAiRoutes } from './ai/routes.js'
 import { onAiEvent, scheduleEnrich } from './ai/enrich.js'
 import { dropNoteState } from './ai/store.js'
+import { assertBindAllowed, registerAuth } from './auth.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const HOST = process.env.HOST || '127.0.0.1'
 const PORT = Number(process.env.PORT || 7710)
 
-if (HOST === '0.0.0.0') {
-  console.warn('[MarkGraph] 正在监听 0.0.0.0：本服务无鉴权，请只放在本机或反向代理后面，不要直接暴露公网')
-}
+assertBindAllowed(HOST)
 
-const app = Fastify({ logger: false })
+const app = Fastify({ logger: false, bodyLimit: MAX_IMAGE_BYTES + 64 * 1024, trustProxy: true })
+await app.register(multipart, { limits: { files: 1, fileSize: MAX_IMAGE_BYTES } })
+await registerAuth(app)
 
 app.setErrorHandler((err: Error & { statusCode?: number }, _req, reply) => {
   const status = typeof err.statusCode === 'number' ? err.statusCode : 500
@@ -73,6 +76,25 @@ app.post('/api/note/delete', async req => {
   // 清掉该笔记的 AI 富集状态（向量缓存按内容 hash 自然过期，不主动清）
   await dropNoteState(p).catch(() => undefined)
   return r
+})
+
+app.get('/api/file', async (req, reply) => {
+  const { path: p } = req.query as { path?: string }
+  if (!p) throw Object.assign(new Error('缺少 path'), { statusCode: 400 })
+  const { body, mime } = await readAttachment(p)
+  return reply
+    .header('Content-Type', mime)
+    .header('X-Content-Type-Options', 'nosniff')
+    .header('Cache-Control', 'private, max-age=31536000, immutable')
+    .send(body)
+})
+
+app.post('/api/file', async req => {
+  const file = await req.file()
+  if (!file) throw Object.assign(new Error('缺少文件'), { statusCode: 400 })
+  const buf = await file.toBuffer()
+  if (file.file.truncated) throw Object.assign(new Error('图片不能超过 8MB'), { statusCode: 400 })
+  return writeAttachment(file.filename || 'image', buf)
 })
 
 // 首启导入示例库（F7：仅当 vault 为空时允许）

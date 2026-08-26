@@ -29,14 +29,14 @@ export function Tabs() {
 
   return (
     <div className="flex h-10 flex-none items-center gap-2 border-b border-[var(--mg-panel-border)] px-3">
-      {/* 装饰性交通灯（不参与交互） */}
-      <div className="flex items-center gap-[7px] pr-1" aria-hidden>
+      {/* 装饰性交通灯（不参与交互）；窄屏隐藏 */}
+      <div className="mg-traffic flex items-center gap-[7px] pr-1" aria-hidden>
         <i className="h-3 w-3 rounded-full bg-[#ff5f57]" />
         <i className="h-3 w-3 rounded-full bg-[#febc2e]" />
         <i className="h-3 w-3 rounded-full bg-[#28c840]" />
       </div>
 
-      <div className="flex min-w-0 flex-1 items-stretch self-stretch">
+      <div className="mg-tablist flex min-w-0 flex-1 items-stretch self-stretch overflow-x-auto">
         {tabs.length === 0 && (
           <span className="self-center px-3 text-[13px] text-[var(--muted-foreground)]">MarkGraph</span>
         )}
@@ -58,7 +58,7 @@ export function Tabs() {
                 e.stopPropagation()
                 closeTab(i)
               }}
-              className="flex h-4 w-4 items-center justify-center rounded opacity-0 hover:bg-[var(--accent)] group-hover:opacity-100"
+              className="mg-tab-close flex h-4 w-4 items-center justify-center rounded opacity-0 hover:bg-[var(--accent)] group-hover:opacity-100"
             >
               <X className="h-3 w-3" />
             </span>
@@ -69,7 +69,7 @@ export function Tabs() {
         ))}
       </div>
 
-      <div className="flex flex-none items-center gap-2">
+      <div className="mg-tab-actions flex flex-none items-center gap-2">
         <div className="flex rounded-lg bg-[var(--secondary)] p-0.5 text-xs text-[var(--muted-foreground)]">
           <button
             className={cn(
