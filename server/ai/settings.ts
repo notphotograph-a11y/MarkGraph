@@ -26,6 +26,17 @@ export interface AiSettings {
   maxAutoLinks: number
   /** 网关连接（UI 内配置，优先于 .env，F14.5） */
   ai: AiConnection
+  /** 写作设置（F27）：模板/日记目录约定 */
+  writing: WritingSettings
+}
+
+export interface WritingSettings {
+  /** 模板文件夹（vault 相对路径） */
+  templatesDir: string
+  /** 日记文件夹（vault 相对路径） */
+  diaryDir: string
+  /** 日记模板文件（vault 相对路径，不存在则建空日记） */
+  diaryTemplate: string
 }
 
 export const DEFAULT_SETTINGS: AiSettings = {
@@ -34,6 +45,7 @@ export const DEFAULT_SETTINGS: AiSettings = {
   autoLinks: 'auto',
   maxAutoLinks: 3,
   ai: { baseUrl: '', apiKey: '', chatModel: '', embedModel: '' },
+  writing: { templatesDir: '模板', diaryDir: '日记', diaryTemplate: '模板/日记.md' },
 }
 
 const DIR = path.join(VAULT_DIR, '.markgraph')
@@ -49,7 +61,12 @@ export async function loadSettings(): Promise<AiSettings> {
 
 export async function saveSettings(patch: Record<string, unknown>): Promise<AiSettings> {
   const cur = await loadSettings()
-  const next = normalize({ ...cur, ...patch, ai: { ...cur.ai, ...(patch.ai as object ?? {}) } })
+  const next = normalize({
+    ...cur,
+    ...patch,
+    ai: { ...cur.ai, ...(patch.ai as object ?? {}) },
+    writing: { ...cur.writing, ...(patch.writing as object ?? {}) },
+  })
   await fs.mkdir(DIR, { recursive: true })
   await fs.writeFile(FILE, JSON.stringify(next, null, 2), 'utf8')
   await fs.chmod(FILE, 0o600).catch(() => undefined)
@@ -78,6 +95,16 @@ export function normalize(raw: Record<string, unknown>): AiSettings {
     if (typeof c.embedModel === 'string') s.ai.embedModel = c.embedModel.trim()
     // key 允许显式清空（改用 .env），空串在 PUT 语义里由路由层拦截为「不变」，此处只兜底
     if (typeof c.apiKey === 'string') s.ai.apiKey = c.apiKey.trim()
+  }
+  const w = raw.writing
+  if (w && typeof w === 'object') {
+    const c = w as Record<string, unknown>
+    for (const k of ['templatesDir', 'diaryDir', 'diaryTemplate'] as const) {
+      if (typeof c[k] === 'string') {
+        // vault 相对 POSIX 路径：去首尾斜杠、拒绝对应的隐藏语义
+        s.writing[k] = (c[k] as string).trim().replace(/^\/+|\/+$/g, '')
+      }
+    }
   }
   return s
 }

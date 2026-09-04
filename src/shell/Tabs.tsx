@@ -2,10 +2,18 @@ import { Settings2, X } from 'lucide-react'
 import { useStore } from '@/state/store'
 import { cn } from '@/lib/utils'
 import { collectPaths } from '@/editor/wikilink'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 
-function tabTitle(tab: { kind: string; path?: string }, treePaths: string[]): string {
+function tabTitle(tab: { kind: string; path?: string; tag?: string }, treePaths: string[]): string {
   if (tab.kind === 'graph') return '图谱'
   if (tab.kind === 'chat') return '问答'
+  if (tab.kind === 'tagview') return `#${tab.tag}`
   if (tab.kind === 'folder') return tab.path!.split('/').pop() ?? ''
   const name = tab.path!.split('/').pop() ?? ''
   const base = name.replace(/\.md$/i, '')
@@ -20,6 +28,8 @@ export function Tabs() {
   const activeIndex = useStore(s => s.activeIndex)
   const setActive = useStore(s => s.setActive)
   const closeTab = useStore(s => s.closeTab)
+  const closeOthers = useStore(s => s.closeOthers)
+  const closeAll = useStore(s => s.closeAll)
   const tree = useStore(s => s.tree)
   const editMode = useStore(s => s.editMode)
   const setEditMode = useStore(s => s.setEditMode)
@@ -41,31 +51,58 @@ export function Tabs() {
           <span className="self-center px-3 text-[13px] text-[var(--muted-foreground)]">MarkGraph</span>
         )}
         {tabs.map((tab, i) => (
-          <button
-            key={tab.kind === 'note' ? tab.path : tab.kind}
-            onClick={() => setActive(i)}
-            className={cn(
-              'group relative flex min-w-0 items-center gap-1.5 self-end mb-[1px] rounded-t-lg px-3 py-1.5 text-[13px]',
-              'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)]',
-              i === activeIndex && 'text-[var(--foreground)] font-medium',
-            )}
-          >
-            <span className="max-w-40 truncate">{tabTitle(tab, treePaths)}</span>
-            <span
-              role="button"
-              aria-label="关闭标签"
-              onClick={e => {
-                e.stopPropagation()
-                closeTab(i)
-              }}
-              className="mg-tab-close flex h-4 w-4 items-center justify-center rounded opacity-0 hover:bg-[var(--accent)] group-hover:opacity-100"
-            >
-              <X className="h-3 w-3" />
-            </span>
-            {i === activeIndex && (
-              <i className="mg-tab-line absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[var(--primary)]" />
-            )}
-          </button>
+          <ContextMenu key={tab.kind === 'note' ? tab.path : `${tab.kind}:${'tag' in tab ? tab.tag : ''}`}>
+            <ContextMenuTrigger asChild>
+              <button
+                onClick={() => setActive(i)}
+                onAuxClick={e => {
+                  // 中键关闭（F29.2）
+                  if (e.button === 1) {
+                    e.preventDefault()
+                    closeTab(i)
+                  }
+                }}
+                className={cn(
+                  'group relative flex min-w-0 items-center gap-1.5 self-end mb-[1px] rounded-t-lg px-3 py-1.5 text-[13px]',
+                  'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[var(--secondary)]',
+                  i === activeIndex && 'text-[var(--foreground)] font-medium',
+                )}
+              >
+                <span className="max-w-40 truncate">{tabTitle(tab, treePaths)}</span>
+                <span
+                  role="button"
+                  aria-label="关闭标签"
+                  onClick={e => {
+                    e.stopPropagation()
+                    closeTab(i)
+                  }}
+                  className="mg-tab-close flex h-4 w-4 items-center justify-center rounded opacity-0 hover:bg-[var(--accent)] group-hover:opacity-100"
+                >
+                  <X className="h-3 w-3" />
+                </span>
+                {i === activeIndex && (
+                  <i className="mg-tab-line absolute inset-x-2 bottom-0 h-[2px] rounded-full bg-[var(--primary)]" />
+                )}
+              </button>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onClick={() => closeTab(i)}>关闭标签</ContextMenuItem>
+              <ContextMenuItem onClick={() => closeOthers(i)}>关闭其他</ContextMenuItem>
+              <ContextMenuItem onClick={() => closeAll()}>全部关闭</ContextMenuItem>
+              {tab.kind === 'note' && (
+                <>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(tab.path).catch(() => undefined)
+                    }}
+                  >
+                    复制路径
+                  </ContextMenuItem>
+                </>
+              )}
+            </ContextMenuContent>
+          </ContextMenu>
         ))}
       </div>
 

@@ -7,21 +7,22 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   createNode,
-  deleteNode,
   ensureVault,
   readAllNotes,
   readNote,
   readTree,
-  renameNode,
   writeNote,
   VAULT_DIR,
 } from './fs-vault.js'
+import { deleteToTrash, listTrash, purgeTrashEntry, restoreFromTrash } from './trash.js'
+import { renameWithLinks } from './shared/link-rewrite.js'
 import { MAX_IMAGE_BYTES, readAttachment, writeAttachment } from './files.js'
 import { onVaultEvent, watchVault } from './watch.js'
 import { registerAiRoutes } from './ai/routes.js'
 import { onAiEvent, scheduleEnrich } from './ai/enrich.js'
 import { dropNoteState } from './ai/store.js'
 import { assertBindAllowed, registerAuth } from './auth.js'
+import { loadSettings, saveSettings } from './ai/settings.js'
 import { getIndex, initIndexService } from './shared/index-service.js'
 import { registerAgentAdmin, registerMcp } from './mcp/routes.js'
 
@@ -68,19 +69,47 @@ app.post('/api/note/create', async req => {
   return createNode(p, !!isDir)
 })
 
+// 改名/移动：默认全库 wikilink 改写（F25.3，与 MCP rename_note 共用实现）
 app.post('/api/note/rename', async req => {
-  const { from, to } = req.body as { from?: string; to?: string }
+  const { from, to, updateLinks } = req.body as { from?: string; to?: string; updateLinks?: boolean }
   if (!from || !to) throw Object.assign(new Error('参数不完整'), { statusCode: 400 })
-  return renameNode(from, to)
+  return renameWithLinks(from, to, updateLinks !== false)
 })
 
+// 删除：一律进回收站（F25.1/N14.1，与 MCP 共享存储与保留策略）
 app.post('/api/note/delete', async req => {
   const { path: p } = req.body as { path?: string }
   if (!p) throw Object.assign(new Error('参数不完整'), { statusCode: 400 })
-  const r = await deleteNode(p)
+  const entry = await deleteToTrash(p, 'web')
   // 清掉该笔记的 AI 富集状态（向量缓存按内容 hash 自然过期，不主动清）
   await dropNoteState(p).catch(() => undefined)
-  return r
+  return { ok: true as const, trashId: entry.id }
+})
+
+app.get('/api/trash', async () => ({ entries: await listTrash() }))
+
+app.post('/api/trash/restore', async req => {
+  const { id } = req.body as { id?: string }
+  if (!id) throw Object.assign(new Error('缺少 id'), { statusCode: 400 })
+  return restoreFromTrash(id)
+})
+
+app.post('/api/trash/purge', async req => {
+  const { id } = req.body as { id?: string }
+  if (!id) throw Object.assign(new Error('缺少 id'), { statusCode: 400 })
+  return purgeTrashEntry(id)
+})
+
+// 写作设置（F27）：模板/日记目录约定，存 settings.json 的 writing 段
+app.get('/api/settings/writing', async () => ({ writing: (await loadSettings()).writing }))
+
+app.put('/api/settings/writing', async req => {
+  const { writing } = req.body as { writing?: Record<string, string> }
+  if (!writing || typeof writing !== 'object') {
+    throw Object.assign(new Error('参数不完整'), { statusCode: 400 })
+  }
+  const next = await saveSettings({ writing })
+  return { writing: next.writing }
 })
 
 app.get('/api/file', async (req, reply) => {

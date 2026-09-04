@@ -11,7 +11,6 @@ import {
 import type { VaultNode } from '@/api/types'
 import { api } from '@/api/client'
 import { useStore } from '@/state/store'
-import { bus } from '@/shell/bus'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -251,30 +250,16 @@ export function FileTree() {
   const tree = useStore(s => s.tree)
   const openGraph = useStore(s => s.openGraph)
   const openFolder = useStore(s => s.openFolder)
+  const createQuickNote = useStore(s => s.createQuickNote)
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set())
   const seededExpand = useRef(false)
   const actions = useTreeActions()
-  const { setNameMode } = actions
 
   useEffect(() => {
     if (seededExpand.current || !tree?.children?.length) return
     seededExpand.current = true
     setExpanded(new Set(tree.children.filter(c => c.type === 'dir').map(c => c.path)))
   }, [tree])
-
-  useEffect(() => {
-    const offNote = bus.on('ui:new-note', payload => {
-      const dir = typeof payload === 'string' ? payload : ''
-      setNameMode({ kind: 'create-note', dir })
-    })
-    const offDir = bus.on('ui:new-folder', () => {
-      setNameMode({ kind: 'create-dir', dir: '' })
-    })
-    return () => {
-      offNote()
-      offDir()
-    }
-  }, [setNameMode])
 
   const toggle = (path: string) => {
     setExpanded(prev => {
@@ -323,8 +308,8 @@ export function FileTree() {
         <div className="flex items-center gap-0.5 normal-case tracking-normal">
           <button
             type="button"
-            title="新建笔记"
-            onClick={() => actions.setNameMode({ kind: 'create-note', dir: '' })}
+            title="新建笔记（直接创建并打开）"
+            onClick={() => void createQuickNote()}
             className="grid h-[22px] w-[22px] place-items-center rounded text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
           >
             <FilePlus className="h-3.5 w-3.5" />
@@ -377,8 +362,8 @@ export function FileTree() {
           </DialogHeader>
           <p className="text-sm text-[var(--muted-foreground)]">
             {actions.confirmDelete && !actions.confirmDelete.toLowerCase().endsWith('.md')
-              ? '文件夹将被递归删除，此操作不可撤销。'
-              : '此操作不可撤销。'}
+              ? '文件夹及其内容将移入回收站，30 天内可在设置中恢复。'
+              : '将移入回收站，30 天内可在设置中恢复。'}
           </p>
           <DialogFooter>
             <Button variant="ghost" onClick={() => actions.setConfirmDelete(null)}>

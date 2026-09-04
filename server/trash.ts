@@ -1,12 +1,12 @@
 /**
- * 回收站（F23.4 / N12 保留策略）：agent 通道删除一律进 .markgraph/trash/，永不物理删除。
- * 浏览器删除行为不变（仍走 fs-vault deleteNode）。
+ * 回收站（F23.4 / N14.1）：所有通道（浏览器 Web + 外部 Agent MCP）的删除一律进
+ * .markgraph/trash/，永不物理删除；两通道共享同一存储与保留策略。
  * 保留上限：200 份或 30 天，超限最旧物理清除（每次删除时顺带清理）。
  */
 import crypto from 'node:crypto'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { readNote, safeJoin, writeNote, rejectHiddenSegments, isMarkdownRel } from '../fs-vault.js'
+import { readNote, safeJoin, writeNote, rejectHiddenSegments, isMarkdownRel } from './fs-vault.js'
 
 const TRASH_DIR = () => path.join(safeJoin('.markgraph'), 'trash')
 const INDEX_FILE = () => path.join(TRASH_DIR(), 'index.json')
@@ -21,6 +21,8 @@ export interface TrashEntry {
   path: string
   deletedAt: string
   reason?: string
+  /** 目录删除（整树保存于条目目录 note/ 下） */
+  isDir?: boolean
 }
 
 async function readIndex(): Promise<TrashEntry[]> {
@@ -37,16 +39,24 @@ async function writeIndex(entries: TrashEntry[]): Promise<void> {
   await fs.writeFile(INDEX_FILE(), JSON.stringify({ entries }, null, 2) + '\n', 'utf8')
 }
 
-/** 删除笔记 → 回收站；返回条目 id */
+/** 删除笔记/文件夹 → 回收站；返回条目 id */
 export async function deleteToTrash(rel: string, reason?: string): Promise<TrashEntry> {
-  if (!isMarkdownRel(rel)) throw Object.assign(new Error('只能删除 .md 笔记'), { statusCode: 400 })
   rejectHiddenSegments(rel)
-  const { content } = await readNote(rel) // 不存在会抛 404 语义错误
   const id = `${Date.now()}-${crypto.randomBytes(3).toString('hex')}`
   const entry: TrashEntry = { id, path: rel, deletedAt: new Date().toISOString(), reason }
   const dir = path.join(TRASH_DIR(), id)
   await fs.mkdir(dir, { recursive: true })
-  await fs.writeFile(path.join(dir, 'note.md'), content, 'utf8')
+  const full = safeJoin(rel)
+  const st = await fs.stat(full).catch(() => null)
+  if (!st) throw Object.assign(new Error(`不存在：${rel}`), { statusCode: 404 })
+  if (st.isDirectory()) {
+    entry.isDir = true
+    await fs.cp(full, path.join(dir, 'note'), { recursive: true })
+  } else {
+    if (!isMarkdownRel(rel)) throw Object.assign(new Error('只能删除 .md 笔记'), { statusCode: 400 })
+    const { content } = await readNote(rel)
+    await fs.writeFile(path.join(dir, 'note.md'), content, 'utf8')
+  }
   const entries = await readIndex()
   entries.push(entry)
   // 保留策略：超限最旧物理清除
@@ -64,8 +74,7 @@ export async function deleteToTrash(rel: string, reason?: string): Promise<Trash
       await fs.rm(path.join(TRASH_DIR(), i), { recursive: true, force: true }).catch(() => undefined)
     }),
   )
-  // 物理移除原文件（回收站已留副本）
-  await fs.rm(safeJoin(rel), { force: true })
+  await fs.rm(safeJoin(rel), { force: true, recursive: true })
   // 清掉因此变空的父目录（只删空目录，向上到 vault 根为止）
   let cur = path.dirname(safeJoin(rel))
   const vaultRoot = path.dirname(safeJoin('.markgraph'))
@@ -83,27 +92,42 @@ export async function listTrash(): Promise<TrashEntry[]> {
   return readIndex()
 }
 
-/** 恢复到原路径；原路径已有文件则 409（附建议），笔记内容未做合并 */
+/** 恢复到原路径；原路径已有同名项则 409（附建议），内容未做合并 */
 export async function restoreFromTrash(id: string): Promise<{ path: string }> {
   const entries = await readIndex()
   const entry = entries.find(e => e.id === id)
   if (!entry) throw Object.assign(new Error(`回收站没有 id=${id} 的条目`), { statusCode: 404 })
-  const src = path.join(TRASH_DIR(), id, 'note.md')
-  const content = await fs.readFile(src, 'utf8').catch(() => {
-    throw Object.assign(new Error(`条目 ${id} 的内容文件缺失`), { statusCode: 500 })
-  })
+  const src = path.join(TRASH_DIR(), id, entry.isDir ? 'note' : 'note.md')
   const exists = await fs
     .stat(safeJoin(entry.path))
     .then(() => true)
     .catch(() => false)
   if (exists) {
     throw Object.assign(
-      new Error(`原路径 ${entry.path} 已存在笔记，先处理冲突（改名或删除现有笔记）再恢复`),
+      new Error(`原路径 ${entry.path} 已存在，先处理冲突（改名或删除现有笔记）再恢复`),
       { statusCode: 409 },
     )
   }
-  await writeNote(entry.path, content)
+  if (entry.isDir) {
+    await fs.cp(src, safeJoin(entry.path), { recursive: true })
+  } else {
+    const content = await fs.readFile(src, 'utf8').catch(() => {
+      throw Object.assign(new Error(`条目 ${id} 的内容文件缺失`), { statusCode: 500 })
+    })
+    await writeNote(entry.path, content)
+  }
   await writeIndex(entries.filter(e => e.id !== id))
   await fs.rm(path.join(TRASH_DIR(), id), { recursive: true, force: true }).catch(() => undefined)
   return { path: entry.path }
+}
+
+/** 彻底清除单条回收站条目（不恢复、不可逆） */
+export async function purgeTrashEntry(id: string): Promise<{ ok: true }> {
+  const entries = await readIndex()
+  if (!entries.some(e => e.id === id)) {
+    throw Object.assign(new Error(`回收站没有 id=${id} 的条目`), { statusCode: 404 })
+  }
+  await writeIndex(entries.filter(e => e.id !== id))
+  await fs.rm(path.join(TRASH_DIR(), id), { recursive: true, force: true }).catch(() => undefined)
+  return { ok: true }
 }

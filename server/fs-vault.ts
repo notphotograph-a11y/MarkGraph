@@ -140,18 +140,6 @@ export async function renameNode(from: string, to: string): Promise<{ path: stri
   return { path: to }
 }
 
-export async function deleteNode(rel: string): Promise<{ ok: true }> {
-  if (!rel) throw Object.assign(new Error('非法路径'), { statusCode: 400 })
-  rejectHiddenSegments(rel)
-  const full = safeJoin(rel)
-  const st = await fs.stat(full)
-  if (st.isFile() && !isMarkdownRel(rel) && !isImageRel(rel)) {
-    throw Object.assign(new Error('只能删除笔记或图片'), { statusCode: 400 })
-  }
-  await fs.rm(full, { recursive: true, force: true })
-  return { ok: true }
-}
-
 /** 批量读取全部笔记内容（前端索引器全量构建用） */
 export async function readAllNotes(): Promise<{ notes: { path: string; content: string }[] }> {
   const tree = await readTree()

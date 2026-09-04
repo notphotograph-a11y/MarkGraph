@@ -147,3 +147,25 @@ export interface AgentTokenInfo {
 export interface AgentTokenCreated extends AgentTokenInfo {
   token: string
 }
+
+/* ============ 回收站（F25.1 / v0.5.0） ============ */
+
+/** 回收站条目（Web 与 MCP 共享存储） */
+export interface TrashEntry {
+  id: string
+  /** 删除时的 vault 相对路径 */
+  path: string
+  deletedAt: string
+  reason?: string
+}
+
+/* ============ 写作设置（F27 / v0.5.0） ============ */
+
+export interface WritingSettings {
+  /** 模板文件夹（vault 相对路径） */
+  templatesDir: string
+  /** 日记文件夹（vault 相对路径） */
+  diaryDir: string
+  /** 日记模板文件（vault 相对路径） */
+  diaryTemplate: string
+}

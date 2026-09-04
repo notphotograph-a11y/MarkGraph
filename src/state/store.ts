@@ -1,11 +1,50 @@
 import { create } from 'zustand'
 import { api } from '@/api/client'
-import type { ThemeId, VaultNode } from '@/api/types'
+import type { ThemeId, VaultNode, WritingSettings } from '@/api/types'
 import type { VaultIndex } from '@/graph/indexer'
 import { collectPaths } from '@/editor/wikilink'
 import { bus } from '@/shell/bus'
 
-export type Tab = { kind: 'note'; path: string } | { kind: 'graph' } | { kind: 'chat' } | { kind: 'folder'; path: string }
+export type Tab =
+  | { kind: 'note'; path: string }
+  | { kind: 'graph' }
+  | { kind: 'chat' }
+  | { kind: 'folder'; path: string }
+  | { kind: 'tagview'; tag: string }
+
+export const DEFAULT_WRITING: WritingSettings = {
+  templatesDir: '模板',
+  diaryDir: '日记',
+  diaryTemplate: '模板/日记.md',
+}
+
+/** 打开笔记时的定位指令（F28.1：全文命中 → 打开即到达命中行） */
+export interface OpenNav {
+  /** 0 基命中行号 */
+  line?: number
+  /** 命中词（用于行内选中/高亮） */
+  query?: string
+}
+
+const MRU_KEY = 'mg-mru'
+const MRU_MAX = 20
+
+function loadMru(): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MRU_KEY) ?? '[]') as unknown
+    return Array.isArray(raw) ? raw.filter((p): p is string => typeof p === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function saveMru(paths: string[]): void {
+  try {
+    localStorage.setItem(MRU_KEY, JSON.stringify(paths.slice(0, MRU_MAX)))
+  } catch {
+    /* 忽略 */
+  }
+}
 
 interface NoteState {
   content: string
@@ -29,16 +68,32 @@ interface AppState {
   editMode: 'edit' | 'read'
   paletteOpen: boolean
   settingsOpen: boolean
+  /** 写作设置（F27）：模板/日记目录 */
+  writing: WritingSettings
+  /** 最近打开（F28.3）：持久化 MRU，命令面板空查询置顶 */
+  mru: string[]
+  /** 待消费的定位指令（openNote(path, nav) 设置，编辑/阅读视图取走） */
+  pendingNav: (OpenNav & { path: string }) | null
   init: () => Promise<void>
   refreshTree: () => Promise<void>
+  refreshWriting: () => Promise<void>
+  createQuickNote: () => Promise<void>
+  createTodayDiary: () => Promise<void>
+  insertTemplate: (tplPath: string) => Promise<void>
+  /** 取走针对该笔记的定位指令（一次性） */
+  consumeNav: (path: string) => OpenNav | null
   syncIndex: () => Promise<void>
   rebuildIndex: () => void
-  openNote: (path: string) => Promise<void>
+  openNote: (path: string, nav?: OpenNav) => Promise<void>
   openGraph: () => void
   openChat: () => void
   openFolder: (path: string) => void
+  openTag: (tag: string) => void
   closeTab: (index: number) => void
   closeActiveTab: () => void
+  /** 关闭除 index 外的全部标签（F29.2） */
+  closeOthers: (index: number) => void
+  closeAll: () => void
   setActive: (index: number) => void
   setTheme: (t: ThemeId) => void
   setEditMode: (m: 'edit' | 'read') => void
@@ -75,9 +130,82 @@ export const useStore = create<AppState>((set, get) => ({
   editMode: 'edit',
   paletteOpen: false,
   settingsOpen: false,
+  writing: { ...DEFAULT_WRITING },
+  mru: loadMru(),
+  pendingNav: null,
 
   init: async () => {
     await get().refreshTree()
+    void get().refreshWriting()
+  },
+
+  refreshWriting: async () => {
+    try {
+      const { writing } = await api.writingGet()
+      set({ writing })
+    } catch {
+      /* 保持默认 */
+    }
+  },
+
+  /** 免弹窗直建（F26.1）：未命名笔记.md 起名防冲突，创建后打开进入编辑 */
+  createQuickNote: async () => {
+    const paths = new Set(collectPaths(get().tree?.children ?? []))
+    let name = '未命名笔记.md'
+    for (let i = 2; paths.has(name); i++) name = `未命名笔记 ${i}.md`
+    await api.create(name, false)
+    await get().refreshTree()
+    await get().openNote(name)
+  },
+
+  /** 新建今日日记（F27.2）：已存在直接打开；模板存在则套用 */
+  createTodayDiary: async () => {
+    const { writing } = get()
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const p = writing.diaryDir ? `${writing.diaryDir}/${today}.md` : `${today}.md`
+    try {
+      await api.note(p)
+      await get().openNote(p)
+      return
+    } catch {
+      /* 不存在，走创建 */
+    }
+    let content = ''
+    if (writing.diaryTemplate) {
+      try {
+        content = (await api.note(writing.diaryTemplate)).content
+      } catch {
+        /* 模板不存在：空日记 */
+      }
+    }
+    try {
+      await api.create(p, false)
+    } catch {
+      /* 409 竞态：已存在则直接打开 */
+    }
+    if (content) await api.save(p, content)
+    await get().refreshTree()
+    await get().openNote(p)
+  },
+
+  /** 插入模板（F27.3）：仅当当前笔记为空时写入模板内容 */
+  insertTemplate: async tplPath => {
+    const { tabs, activeIndex, notes } = get()
+    const tab = activeIndex >= 0 ? tabs[activeIndex] : null
+    if (!tab || tab.kind !== 'note') return
+    const cur = notes[tab.path]
+    if (!cur || cur.content.trim()) return
+    const tpl = await api.note(tplPath)
+    await api.save(tab.path, tpl.content)
+    set({
+      notes: {
+        ...get().notes,
+        [tab.path]: { ...cur, content: tpl.content, mtime: Date.now(), dirty: false },
+      },
+      contents: { ...get().contents, [tab.path]: tpl.content },
+    })
+    get().rebuildIndex()
   },
 
   /** 对齐内容池与当前树（缺失较多走批量接口），然后全量重建索引 */
@@ -156,7 +284,8 @@ export const useStore = create<AppState>((set, get) => ({
         (t.kind === 'note' && paths.has(t.path)) ||
         (t.kind === 'folder' && dirs.has(t.path)) ||
         t.kind === 'graph' ||
-        t.kind === 'chat',
+        t.kind === 'chat' ||
+        t.kind === 'tagview',
     )
     let nextIndex = activeIndex
     if (valid.length === 0) nextIndex = -1
@@ -167,8 +296,13 @@ export const useStore = create<AppState>((set, get) => ({
     void get().syncIndex()
   },
 
-  openNote: async path => {
+  openNote: async (path, nav) => {
     const { tabs, notes } = get()
+    if (nav) set({ pendingNav: { ...nav, path } })
+    // MRU（F28.3）：去重置顶，持久化
+    const mru = [path, ...get().mru.filter(p => p !== path)].slice(0, MRU_MAX)
+    set({ mru })
+    saveMru(mru)
     const existing = tabs.findIndex(t => t.kind === 'note' && t.path === path)
     if (existing >= 0) {
       set({ activeIndex: existing, lastNotePath: path })
@@ -222,6 +356,16 @@ export const useStore = create<AppState>((set, get) => ({
     set({ tabs: [...get().tabs, { kind: 'folder', path }], activeIndex: tabs.length })
   },
 
+  openTag: tag => {
+    const { tabs } = get()
+    const existing = tabs.findIndex(t => t.kind === 'tagview' && t.tag === tag)
+    if (existing >= 0) {
+      set({ activeIndex: existing })
+      return
+    }
+    set({ tabs: [...tabs, { kind: 'tagview', tag }], activeIndex: tabs.length })
+  },
+
   closeTab: index => {
     const { tabs, activeIndex } = get()
     const next = tabs.filter((_, i) => i !== index)
@@ -234,6 +378,15 @@ export const useStore = create<AppState>((set, get) => ({
     const { activeIndex } = get()
     if (activeIndex >= 0) get().closeTab(activeIndex)
   },
+
+  closeOthers: index => {
+    const { tabs } = get()
+    const keep = tabs[index]
+    if (!keep) return
+    set({ tabs: [keep], activeIndex: 0 })
+  },
+
+  closeAll: () => set({ tabs: [], activeIndex: -1 }),
 
   setActive: index => {
     const tab = get().tabs[index]
@@ -281,6 +434,14 @@ export const useStore = create<AppState>((set, get) => ({
       contents: nextContents,
       lastNotePath: lastNotePath ? map(lastNotePath) : null,
     })
+  },
+
+  /** 取走针对该笔记的定位指令（一次性；不匹配返回 null） */
+  consumeNav: path => {
+    const nav = get().pendingNav
+    if (!nav || nav.path !== path) return null
+    set({ pendingNav: null })
+    return { line: nav.line, query: nav.query }
   },
 
   setNoteContent: (path, content) => {

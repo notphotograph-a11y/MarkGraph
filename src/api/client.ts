@@ -11,8 +11,10 @@ import type {
   NoteContent,
   SerializedIndex,
   TestConnectionResult,
+  TrashEntry,
   VaultEvent,
   VaultNode,
+  WritingSettings,
 } from './types'
 
 const authListeners = new Set<() => void>()
@@ -70,19 +72,46 @@ export const api = {
       body: JSON.stringify({ path, isDir }),
     }).then(r => json<{ path: string }>(r)),
 
-  rename: (from: string, to: string) =>
+  rename: (from: string, to: string, updateLinks = true) =>
     fetch('/api/note/rename', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to }),
-    }).then(r => json<{ path: string }>(r)),
+      body: JSON.stringify({ from, to, updateLinks }),
+    }).then(r => json<{ path: string; updatedLinksIn: string[]; skippedByConflict: string[] }>(r)),
 
   remove: (path: string) =>
     fetch('/api/note/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path }),
+    }).then(r => json<{ ok: true; trashId: string }>(r)),
+
+  trashList: () =>
+    fetch('/api/trash').then(r => json<{ entries: TrashEntry[] }>(r)),
+
+  trashRestore: (id: string) =>
+    fetch('/api/trash/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).then(r => json<{ path: string }>(r)),
+
+  trashPurge: (id: string) =>
+    fetch('/api/trash/purge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
     }).then(r => json<{ ok: true }>(r)),
+
+  writingGet: () =>
+    fetch('/api/settings/writing').then(r => json<{ writing: WritingSettings }>(r)),
+
+  writingSave: (writing: Partial<WritingSettings>) =>
+    fetch('/api/settings/writing', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ writing }),
+    }).then(r => json<{ writing: WritingSettings }>(r)),
 
   importSample: () =>
     fetch('/api/import-sample', { method: 'POST' }).then(r => json<{ ok: true }>(r)),

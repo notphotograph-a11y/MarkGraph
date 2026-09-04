@@ -4,9 +4,9 @@
  * 快捷开关与右栏智能面板同源（同一 PUT），连接配置热生效无需重启。
  */
 import { useEffect, useState } from 'react'
-import { Plug, Sparkles, Palette, Bot } from 'lucide-react'
+import { Plug, Sparkles, Palette, Bot, Trash2, NotebookPen } from 'lucide-react'
 import { api } from '@/api/client'
-import type { AgentScope, AgentTokenInfo, TestConnectionResult } from '@/api/types'
+import type { AgentScope, AgentTokenInfo, TestConnectionResult, TrashEntry, WritingSettings } from '@/api/types'
 import { useStore } from '@/state/store'
 import { useAiStore } from '@/state/ai'
 import type { AiLinkMode } from '@/api/types'
@@ -322,6 +322,146 @@ function AgentCard() {
   )
 }
 
+/** 回收站卡（F25.2）：列出/恢复/彻底清除；与 MCP 通道共享存储，保留 200 条或 30 天 */
+function TrashCard() {
+  const [entries, setEntries] = useState<TrashEntry[] | null>(null)
+  const [flash, setFlash] = useState('')
+  const refreshTree = useStore(s => s.refreshTree)
+
+  const refresh = () => {
+    void api
+      .trashList()
+      .then(r => setEntries([...r.entries].reverse())) // 最新删除的在前
+      .catch(() => setEntries([]))
+  }
+  useEffect(refresh, [])
+
+  const restore = async (e: TrashEntry) => {
+    setFlash('')
+    try {
+      const r = await api.trashRestore(e.id)
+      setFlash(`已恢复到 ${r.path}`)
+      await refreshTree()
+      refresh()
+    } catch (err) {
+      setFlash(`恢复失败：${(err as Error).message}`)
+    }
+  }
+
+  const purge = async (e: TrashEntry) => {
+    setFlash('')
+    try {
+      await api.trashPurge(e.id)
+      setFlash(`已彻底清除「${e.path}」，不可恢复`)
+      refresh()
+    } catch (err) {
+      setFlash(`清除失败：${(err as Error).message}`)
+    }
+  }
+
+  return (
+    <section className="mg-settings-card rounded-xl border border-[var(--border)] p-4" style={{ animationDelay: '100ms' }}>
+      <CardTitle icon={<Trash2 className="h-3.5 w-3.5" />}>回收站</CardTitle>
+      <p className="mt-1 text-[11.5px] leading-4 text-[var(--muted-foreground)]">
+        删除的笔记都在这里（保留 200 条或 30 天，与外部 agent 通道共用）。
+      </p>
+      {entries && entries.length === 0 && (
+        <p className="mt-2 text-[11.5px] text-[var(--muted-foreground)]">回收站是空的。</p>
+      )}
+      {entries && entries.length > 0 && (
+        <ul className="mt-2.5 space-y-1.5">
+          {entries.map(e => (
+            <li key={e.id} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--border)] px-3 py-2 text-[12px]">
+              <div className="min-w-0">
+                <button
+                  className="block max-w-full truncate font-medium text-[var(--mg-link)] hover:underline"
+                  title={`恢复并打开 ${e.path}`}
+                  onClick={() => void restore(e)}
+                >
+                  {e.path}
+                </button>
+                <span className="text-[var(--muted-foreground)]">
+                  {new Date(e.deletedAt).toLocaleString('zh-CN', { hour12: false })}
+                </span>
+              </div>
+              <div className="flex flex-none items-center gap-1.5">
+                <Button size="sm" variant="outline" onClick={() => void restore(e)}>
+                  恢复
+                </Button>
+                <Button size="sm" variant="ghost" className="text-[var(--mg-broken)]" onClick={() => void purge(e)}>
+                  彻底清除
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {flash && <p className="mt-2 text-[11.5px] text-[var(--muted-foreground)]">{flash}</p>}
+    </section>
+  )
+}
+
+/** 写作卡（F27.1）：模板/日记目录约定，保存后命令面板的日记与模板命令即时生效 */
+function WritingCard() {
+  const writing = useStore(s => s.writing)
+  const refreshWriting = useStore(s => s.refreshWriting)
+  const [form, setForm] = useState<WritingSettings>(writing)
+  const [saving, setSaving] = useState(false)
+  const [flash, setFlash] = useState('')
+
+  useEffect(() => setForm(writing), [writing])
+
+  const save = async () => {
+    setSaving(true)
+    setFlash('')
+    try {
+      await api.writingSave({
+        templatesDir: form.templatesDir.trim(),
+        diaryDir: form.diaryDir.trim(),
+        diaryTemplate: form.diaryTemplate.trim(),
+      })
+      await refreshWriting()
+      setFlash('已保存')
+    } catch (err) {
+      setFlash(`保存失败：${(err as Error).message}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const field = (key: keyof WritingSettings, label: string, placeholder: string) => (
+    <label className="grid gap-1 text-[11.5px] text-[var(--muted-foreground)]">
+      {label}
+      <Input
+        value={form[key]}
+        onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+        placeholder={placeholder}
+        spellCheck={false}
+      />
+    </label>
+  )
+
+  return (
+    <section className="mg-settings-card rounded-xl border border-[var(--border)] p-4" style={{ animationDelay: '90ms' }}>
+      <CardTitle icon={<NotebookPen className="h-3.5 w-3.5" />}>写作</CardTitle>
+      <p className="mt-1 text-[11.5px] leading-4 text-[var(--muted-foreground)]">
+        「新建今日日记」按日期写入日记文件夹（套用日记模板）；空笔记可通过命令面板「插入模板」套用模板文件夹中的模板。
+      </p>
+      <div className="mt-3 grid grid-cols-1 gap-2.5">
+        {field('templatesDir', '模板文件夹', '模板')}
+        {field('diaryDir', '日记文件夹', '日记')}
+        {field('diaryTemplate', '日记模板', '模板/日记.md')}
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <Button size="sm" onClick={() => void save()} disabled={saving}>
+          {saving ? '保存中…' : '保存'}
+        </Button>
+        {flash && <span className="text-[11.5px] text-[var(--muted-foreground)]">{flash}</span>}
+      </div>
+    </section>
+  )
+}
+
 /** 外观卡：五主题（与命令面板同源） */
 function AppearanceCard() {
   const theme = useStore(s => s.theme)
@@ -363,6 +503,8 @@ export function SettingsDialog() {
           <ConnectionCard />
           <BehaviorCard />
           <AgentCard />
+          <TrashCard />
+          <WritingCard />
           <AppearanceCard />
         </div>
         <p className="mt-3 text-center text-[11px] text-[var(--muted-foreground)]">

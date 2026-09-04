@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
@@ -11,89 +11,51 @@ import { splitFrontmatter } from '@/lib/frontmatter'
 import { markgraphDecorations } from './decorations'
 import { wikilinkCompletions } from './completions'
 import { renderMarkdown } from './markdown'
-import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 
-/** wikilink 点击导航（编辑态 chip 与阅读态 span 共用） */
-function useLinkNav() {
+/** wikilink/标签点击导航（编辑态 chip 与阅读态 span 共用） */
+function useLinkNav(currentPath: string) {
   const openNote = useStore(s => s.openNote)
+  const openTag = useStore(s => s.openTag)
   const refreshTree = useStore(s => s.refreshTree)
-  const [broken, setBroken] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
+  const creatingRef = useRef(false)
 
   const navigate = useCallback(
     (el: HTMLElement) => {
+      // 标签 chip → 标签视图（F29.1）
+      const tagChip = el.closest<HTMLElement>('[data-tag]')
+      if (tagChip) {
+        openTag(tagChip.dataset.tag ?? '')
+        return
+      }
       const chip = el.closest<HTMLElement>('[data-wk]')
       if (!chip) return
       const target = chip.dataset.wk ?? ''
       const resolved = chip.dataset.wkp ?? ''
       if (resolved) {
         void openNote(resolved)
-      } else {
-        setBroken(target)
+        return
       }
-    },
-    [openNote],
-  )
-
-  const createBroken = useCallback(
-    async (target: string, currentPath: string) => {
-      setCreating(true)
-      try {
-        const name = target.replace(/\.md$/i, '')
-        const dir = currentPath.split('/').slice(0, -1).join('/')
-        const p = dir ? `${dir}/${name}.md` : `${name}.md`
-        await api.create(p, false)
-        await refreshTree()
-        setBroken(null)
+      if (!target || creatingRef.current) return
+      creatingRef.current = true
+      const name = target.replace(/\.md$/i, '')
+      const dir = currentPath.split('/').slice(0, -1).join('/')
+      const p = dir ? `${dir}/${name}.md` : `${name}.md`
+      void (async () => {
+        try {
+          await api.create(p, false)
+          await refreshTree()
+        } catch {
+          // 已存在（连点/竞态）：直接打开
+        }
         await openNote(p)
-      } finally {
-        setCreating(false)
-      }
+      })().finally(() => {
+        creatingRef.current = false
+      })
     },
-    [openNote, refreshTree],
+    [openNote, openTag, refreshTree, currentPath],
   )
 
-  return { navigate, broken, setBroken, creating, createBroken }
-}
-
-function BrokenDialog({
-  target,
-  creating,
-  onCancel,
-  onConfirm,
-}: {
-  target: string | null
-  creating: boolean
-  onCancel: () => void
-  onConfirm: () => void
-}) {
-  return (
-    <Dialog open={!!target} onOpenChange={o => !o && onCancel()}>
-      <DialogContent className="sm:max-w-sm" showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>创建此笔记？</DialogTitle>
-        </DialogHeader>
-        <p className="text-sm text-[var(--muted-foreground)]">
-          这是一个断链——目标笔记不存在。创建后将在当前笔记所在文件夹生成并打开。
-        </p>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onCancel}>
-            取消
-          </Button>
-          <Button onClick={onConfirm} disabled={creating}>
-            {creating ? '创建中…' : '创建'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
+  return { navigate }
 }
 
 const IMAGE_FILE = /^image\/(png|jpeg|gif|webp)$/i
@@ -141,7 +103,7 @@ export function Editor({ path }: { path: string }) {
   const setNoteContent = useStore(s => s.setNoteContent)
   const markSaving = useStore(s => s.markSaving)
   const markSaved = useStore(s => s.markSaved)
-  const { navigate, broken, setBroken, creating, createBroken } = useLinkNav()
+  const { navigate } = useLinkNav(path)
   const timer = useRef<number | null>(null)
   const pendingPath = useRef<string | null>(null)
   const contentRef = useRef<string>('')
@@ -241,6 +203,46 @@ export function Editor({ path }: { path: string }) {
     }
   }, [path, flush])
 
+  // ⌘S 立即落盘（F26.2）
+  useEffect(() => {
+    return bus.on('editor:flush', () => {
+      if (timer.current) window.clearTimeout(timer.current)
+      void flush()
+    })
+  }, [flush])
+
+  // 搜索命中定位（F28.1）：打开后滚动到命中行并选中命中词
+  // 依赖 activeIndex：tab 已存在时再次导航也要重新定位
+  const activeIndex = useStore(s => s.activeIndex)
+  useEffect(() => {
+    if (!note) return
+    if (useStore.getState().activeIndex !== activeIndex) return
+    const nav = useStore.getState().consumeNav(path)
+    if (!nav) return
+    const t = window.setTimeout(() => {
+      const view = viewRef.current
+      if (!view) return
+      const lineNo = Math.min((nav.line ?? 0) + 1, view.state.doc.lines)
+      const line = view.state.doc.line(lineNo)
+      let from = line.from
+      let to = line.from
+      const q = nav.query?.toLowerCase()
+      if (q) {
+        const idx = line.text.toLowerCase().indexOf(q)
+        if (idx >= 0) {
+          from = line.from + idx
+          to = from + nav.query!.length
+        }
+      }
+      view.dispatch({
+        selection: { anchor: from, head: to },
+        effects: EditorView.scrollIntoView(from, { y: 'center' }),
+      })
+      view.focus()
+    }, 60)
+    return () => window.clearTimeout(t)
+  }, [path, note, activeIndex])
+
   // 大纲定位（编辑模式）：滚动到标题行并把光标移过去
   useEffect(() => {
     return bus.on('outline:goto', payload => {
@@ -280,12 +282,6 @@ export function Editor({ path }: { path: string }) {
         }}
         basicSetup={{ foldGutter: false, highlightActiveLine: false, autocompletion: false }}
       />
-      <BrokenDialog
-        target={broken}
-        creating={creating}
-        onCancel={() => setBroken(null)}
-        onConfirm={() => broken && void createBroken(broken, path)}
-      />
     </div>
   )
 }
@@ -294,10 +290,8 @@ export function Editor({ path }: { path: string }) {
 export function ReadView({ path }: { path: string }) {
   const note = useStore(s => s.notes[path])
   const tree = useStore(s => s.tree)
-  const openNote = useStore(s => s.openNote)
-  const refreshTree = useStore(s => s.refreshTree)
-  const [broken, setBroken] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
+  const activeIndex = useStore(s => s.activeIndex)
+  const { navigate } = useLinkNav(path)
   const rootRef = useRef<HTMLDivElement>(null)
 
   const paths = useMemo(
@@ -330,20 +324,33 @@ export function ReadView({ path }: { path: string }) {
     })
   }, [path])
 
-  const createBroken = async (target: string) => {
-    setCreating(true)
-    try {
-      const name = target.replace(/\.md$/i, '')
-      const dir = path.split('/').slice(0, -1).join('/')
-      const p = dir ? `${dir}/${name}.md` : `${name}.md`
-      await api.create(p, false)
-      await refreshTree()
-      setBroken(null)
-      await openNote(p)
-    } finally {
-      setCreating(false)
-    }
-  }
+  // 搜索命中定位（F28.1 · 阅读态）：找到首个命中词 → 选中并滚动居中
+  useEffect(() => {
+    if (!note) return
+    const nav = useStore.getState().consumeNav(path)
+    if (!nav?.query) return
+    const t = window.setTimeout(() => {
+      const root = rootRef.current
+      if (!root) return
+      const q = nav.query!.toLowerCase()
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      let node: Node | null
+      while ((node = walker.nextNode())) {
+        const text = node.nodeValue ?? ''
+        const idx = text.toLowerCase().indexOf(q)
+        if (idx < 0) continue
+        const range = document.createRange()
+        range.setStart(node, idx)
+        range.setEnd(node, idx + nav.query!.length)
+        const sel = window.getSelection()
+        sel?.removeAllRanges()
+        sel?.addRange(range)
+        range.startContainer.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        break
+      }
+    }, 80)
+    return () => window.clearTimeout(t)
+  }, [path, note, activeIndex])
 
   return (
     <>
@@ -352,25 +359,12 @@ export function ReadView({ path }: { path: string }) {
         className="mg-read flex-1 overflow-auto px-10 py-8 text-[15.5px] leading-7"
         onClick={e => {
           const el = e.target
-          if (!(el instanceof HTMLElement)) return
-          const chip = el.closest<HTMLElement>('[data-wk]')
-          if (!chip) return
-          const targetPath = chip.dataset.wkp ?? ''
-          if (targetPath) void openNote(targetPath)
-          else setBroken(chip.dataset.wk ?? '')
+          if (el instanceof HTMLElement) navigate(el)
         }}
         dangerouslySetInnerHTML={{ __html: html }}
       >
         {/* 阅读内容渲染容器 */}
       </div>
-      <BrokenDialog
-        target={broken}
-        creating={creating}
-        onCancel={() => setBroken(null)}
-        onConfirm={() => broken && void createBroken(broken)}
-      />
     </>
   )
 }
-
-export { BrokenDialog }

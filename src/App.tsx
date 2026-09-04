@@ -8,10 +8,12 @@ import { Editor, ReadView } from '@/editor/Editor'
 import { GraphView } from '@/graph/GraphView'
 import { ChatView } from '@/chat/ChatView'
 import { FolderView } from '@/folder/FolderView'
+import { TagView } from '@/tag/TagView'
 import { CommandPalette } from '@/shell/CommandPalette'
 import { SettingsDialog } from '@/shell/Settings'
 import { MobileChrome } from '@/shell/MobileChrome'
 import { ConnectionBanner } from '@/shell/ConnectionBanner'
+import { bus } from '@/shell/bus'
 import { useNarrow } from '@/shell/useNarrow'
 import { LoginGate } from '@/shell/Login'
 import { Button } from '@/components/ui/button'
@@ -130,6 +132,8 @@ function Workspace({
           <ChatView />
         ) : active?.kind === 'folder' ? (
           <FolderView path={active.path} />
+        ) : active?.kind === 'tagview' ? (
+          <TagView tag={active.tag} />
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
             在左侧选择一篇笔记开始
@@ -166,6 +170,10 @@ export default function App() {
         e.preventDefault()
         const s = useStore.getState()
         s.setEditMode(s.editMode === 'edit' ? 'read' : 'edit')
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        // ⌘S 手动保存（F26.2）：拦截浏览器保存框，立即落盘当前笔记
+        e.preventDefault()
+        bus.emit('editor:flush')
       }
     }
     window.addEventListener('keydown', onKey)

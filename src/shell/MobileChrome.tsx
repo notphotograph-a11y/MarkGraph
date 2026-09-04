@@ -2,7 +2,7 @@
  * 窄屏壳（F20）：全宽当前页 + 底栏。桌面三栏不走这里。
  */
 import { useEffect, useState, type ReactNode } from 'react'
-import { BookOpen, FolderTree, LogOut, MoreHorizontal, PanelRight, Search, Share2, Settings2, MessageCircle } from 'lucide-react'
+import { BookOpen, CalendarPlus, FolderTree, LogOut, MoreHorizontal, PanelRight, Search, Share2, Settings2, MessageCircle } from 'lucide-react'
 import { api } from '@/api/client'
 import { FileTree } from '@/panels/FileTree'
 import { getPanels } from '@/panels/registry'
@@ -19,6 +19,7 @@ export function MobileChrome({ children }: { children: ReactNode }) {
   const openGraph = useStore(s => s.openGraph)
   const openChat = useStore(s => s.openChat)
   const setSettingsOpen = useStore(s => s.setSettingsOpen)
+  const createTodayDiary = useStore(s => s.createTodayDiary)
   const activeIndex = useStore(s => s.activeIndex)
 
   useEffect(() => {
@@ -76,6 +77,14 @@ export function MobileChrome({ children }: { children: ReactNode }) {
             label={editMode === 'read' ? '进入编辑' : '进入阅读'}
             onClick={() => {
               setEditMode(editMode === 'read' ? 'edit' : 'read')
+              close()
+            }}
+          />
+          <MoreBtn
+            icon={<CalendarPlus className="h-4 w-4" />}
+            label="新建今日日记"
+            onClick={() => {
+              void createTodayDiary()
               close()
             }}
           />

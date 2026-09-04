@@ -130,12 +130,15 @@ function AiPanel() {
           {view.tags.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {view.tags.map(t => (
-                <span
+                <button
                   key={t}
-                  className="rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[11px] text-[var(--muted-foreground)]"
+                  type="button"
+                  onClick={() => useStore.getState().openTag(t)}
+                  title={`标签：点击筛选 #${t}`}
+                  className="cursor-pointer rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--primary)]"
                 >
                   #{t}
-                </span>
+                </button>
               ))}
             </div>
           )}

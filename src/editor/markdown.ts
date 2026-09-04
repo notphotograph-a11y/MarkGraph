@@ -82,7 +82,7 @@ export function renderMarkdown(src: string, resolve: ResolveFn): string {
     const targetPath = resolve(parsed.target)
     return `<span class="rd-link${targetPath ? '' : ' rd-broken'}" data-wk="${escapeHtml(parsed.target)}" data-wkp="${escapeHtml(targetPath ?? '')}">${escapeHtml(linkText(parsed))}</span>`
   })
-  body = body.replace(/(^|\s)(#[\p{L}\p{N}_-]+)/gu, '$1<span class="rd-tag">$2</span>')
+  body = body.replace(/(^|\s)(#[\p{L}\p{N}_-]+)/gu, (_, lead: string, tag: string) => `${lead}<span class="rd-tag" data-tag="${escapeHtml(tag.slice(1))}" title="标签：点击筛选">${escapeHtml(tag)}</span>`)
   const html = marked.parse(body, { async: false }) as string
   return rewriteImgs(html)
 }

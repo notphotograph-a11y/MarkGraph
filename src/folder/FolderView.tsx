@@ -19,10 +19,11 @@ function findNode(root: VaultNode | null, path: string): VaultNode | null {
   return null
 }
 
-function NoteCard({ path, name }: { path: string; name: string }) {
+export function NoteCard({ path, name }: { path: string; name: string }) {
   const content = useStore(s => s.contents[path])
   const backlinks = useStore(s => s.index?.backlinks.get(path)?.length ?? 0)
   const openNote = useStore(s => s.openNote)
+  const openTag = useStore(s => s.openTag)
 
   const { summary, tags } = useMemo(() => {
     const { fm } = splitFrontmatter(content ?? '')
@@ -51,7 +52,13 @@ function NoteCard({ path, name }: { path: string; name: string }) {
           {tags.map(t => (
             <span
               key={t}
-              className="rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[11px] text-[var(--muted-foreground)]"
+              role="button"
+              tabIndex={0}
+              onClick={e => {
+                e.stopPropagation()
+                openTag(t)
+              }}
+              className="cursor-pointer rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[11px] text-[var(--muted-foreground)] hover:text-[var(--primary)]"
             >
               #{t}
             </span>

@@ -115,9 +115,16 @@ export function markgraphDecorations(resolve: ResolveFn) {
                   }),
                 )
               } else if (m[3]) {
-                // 标签（含前导空白）
+                // 标签（含前导空白）；可点击打开标签视图（F29.1）
                 const lead = m[3].length - m[3].replace(/^\s+/, '').length
-                push(s + lead, s + m[3].length, Decoration.mark({ class: 'cm-mg-tag' }))
+                push(
+                  s + lead,
+                  s + m[3].length,
+                  Decoration.mark({
+                    class: 'cm-mg-tag',
+                    attributes: { 'data-tag': m[3].trim().slice(1), title: `标签：点击筛选 #${m[3].trim().slice(1)}` },
+                  }),
+                )
               } else if (m[5]) {
                 // **加粗**
                 if (!active) {

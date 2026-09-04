@@ -346,6 +346,7 @@ body {
 }
 .cm-mg-tag {
   color: var(--primary);
+  cursor: pointer;
 }
 .cm-mg-markdim {
   opacity: 0.45;
@@ -450,6 +451,7 @@ body {
 }
 .rd-tag {
   color: var(--primary);
+  cursor: pointer;
 }
 
 /* ============ 图谱 ============ */
@@ -678,4 +680,12 @@ label {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* 命令面板摘录关键词高亮（F28.2） */
+.mg-search-hl {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--foreground);
+  border-radius: 3px;
+  padding: 0 1px;
 }

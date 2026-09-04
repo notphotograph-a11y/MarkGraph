@@ -6,7 +6,7 @@ import { api } from '@/api/client'
 import type { ThemeId } from '@/api/types'
 import { useStore } from '@/state/store'
 import { useAiStore } from '@/state/ai'
-import { bus } from './bus'
+import { collectPaths } from '@/editor/wikilink'
 
 export interface Command {
   id: string
@@ -26,12 +26,28 @@ const THEMES: { id: ThemeId; label: string }[] = [
 export function listCommands(): Command[] {
   const s = useStore.getState()
   const empty = !s.tree?.children?.length
+  // 模板列表（F27.3）：模板文件夹下的 .md，插入命令仅当前笔记为空时出现
+  const dir = s.writing.templatesDir
+  const templates = dir
+    ? collectPaths(s.tree?.children ?? []).filter(
+        p => p.startsWith(`${dir}/`) && p.toLowerCase().endsWith('.md'),
+      )
+    : []
+  const activeTab = s.activeIndex >= 0 ? s.tabs[s.activeIndex] : null
+  const activeNote = activeTab?.kind === 'note' ? s.notes[activeTab.path] : undefined
+  const canInsertTemplate = !!activeNote && !activeNote.content.trim()
   const cmds: Command[] = [
     {
       id: 'new-note',
       title: '新建笔记',
       keywords: 'new note 新建',
-      run: () => bus.emit('ui:new-note', ''),
+      run: () => void s.createQuickNote(),
+    },
+    {
+      id: 'today-diary',
+      title: '新建今日日记',
+      keywords: 'diary journal 日记 今天 today',
+      run: () => void s.createTodayDiary(),
     },
     {
       id: 'open-graph',
@@ -93,6 +109,20 @@ export function listCommands(): Command[] {
         await s.refreshTree()
       },
     })
+  }
+  // 插入模板（F27.3）：当前笔记为空时列出可选模板
+  if (canInsertTemplate) {
+    cmds.push(
+      ...templates.map(t => {
+        const label = t.slice(dir.length + 1).replace(/\.md$/i, '')
+        return {
+          id: `insert-template-${t}`,
+          title: `插入模板：${label}`,
+          keywords: `template 模板 插入 ${label}`,
+          run: () => void s.insertTemplate(t),
+        }
+      }),
+    )
   }
   // AI 命令（F10.4）：已配置才出现
   if (useAiStore.getState().status?.configured) {
