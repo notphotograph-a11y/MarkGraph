@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="MarkGraph">
+  <!-- 应用图标单一源（F24.2）：图谱母题（三节点全连），默认玻璃主题的蓝紫渐变。
+       由 scripts/gen-icons.mjs 产出全平台 PNG，改动后重跑脚本。 -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4a8df0"/>
+      <stop offset="1" stop-color="#7d5be0"/>
+    </linearGradient>
+  </defs>
+  <rect id="bgrect" width="512" height="512" rx="112" fill="url(#bg)"/>
+  <g id="fg">
+    <g stroke="#ffffff" stroke-width="24" stroke-linecap="round" opacity="0.95">
+      <path d="M256 148 L156 336"/>
+      <path d="M256 148 L356 336"/>
+      <path d="M156 336 L356 336"/>
+    </g>
+    <circle cx="256" cy="148" r="56" fill="#ffffff"/>
+    <circle cx="156" cy="336" r="44" fill="#ffffff" fill-opacity="0.88"/>
+    <circle cx="356" cy="336" r="44" fill="#ffffff" fill-opacity="0.88"/>
+  </g>
+</svg>

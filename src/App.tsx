@@ -11,6 +11,7 @@ import { FolderView } from '@/folder/FolderView'
 import { CommandPalette } from '@/shell/CommandPalette'
 import { SettingsDialog } from '@/shell/Settings'
 import { MobileChrome } from '@/shell/MobileChrome'
+import { ConnectionBanner } from '@/shell/ConnectionBanner'
 import { useNarrow } from '@/shell/useNarrow'
 import { LoginGate } from '@/shell/Login'
 import { Button } from '@/components/ui/button'
@@ -230,10 +231,20 @@ export default function App() {
   }, [init, gate])
 
   if (gate === 'checking') {
-    return <div className="app-root flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">加载中…</div>
+    return (
+      <>
+        <ConnectionBanner />
+        <div className="app-root flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">加载中…</div>
+      </>
+    )
   }
   if (gate === 'login') {
-    return <LoginGate onOk={() => setGate('ok')} />
+    return (
+      <>
+        <ConnectionBanner />
+        <LoginGate onOk={() => setGate('ok')} />
+      </>
+    )
   }
 
   const vaultEmpty = !tree || !tree.children || tree.children.length === 0
@@ -241,6 +252,7 @@ export default function App() {
 
   return (
     <>
+      <ConnectionBanner />
       {narrow ? (
         <MobileChrome>{workspace}</MobileChrome>
       ) : (
